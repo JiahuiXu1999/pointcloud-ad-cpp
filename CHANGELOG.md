@@ -53,3 +53,5 @@ public API release is published.
 - M5 scan-to-reference deviation field with a per-storage-index signed deviation, Euclidean
   distance, and normal angle, plus invalid reasons (input-invalid, no-neighbor, normal-missing,
   normal-mismatch, reference-boundary) computed over a once-per-call reference KD-tree.
+- M5 reference-to-scan coverage field with a per-storage-index covered/no-neighbor/scan-boundary
+  sample and an aggregate coverage ratio, computed over a once-per-call scan KD-tree.

@@ -46,7 +46,7 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 
 ## Current milestone
 
-M0, M0.1/B00, M1, M2, M3, and M4 are complete. M5 is in progress: PCAD-CMP-001 (scan-to-reference
-deviation field) is complete. The next permitted atomic task is M5/PCAD-CMP-002: implement the
-reference-to-scan coverage field without changing status/exit-code semantics or exposing PCL/Eigen
-from installed headers.
+M0, M0.1/B00, M1, M2, M3, and M4 are complete. M5 is in progress: PCAD-CMP-001 (deviation field)
+and PCAD-CMP-002 (coverage field) are complete. The next permitted atomic task is M5/PCAD-CMP-003:
+implement invalid-reason statistics without changing status/exit-code semantics or exposing
+PCL/Eigen from installed headers.
