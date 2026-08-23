@@ -50,3 +50,6 @@ public API release is published.
 - M4 backend-neutral registration quality gate evaluating convergence, pair count, overlap, inlier
   residual, and translation/rotation priors in a fixed specification order without coupling to
   verdicts or process exit codes.
+- M5 scan-to-reference deviation field with a per-storage-index signed deviation, Euclidean
+  distance, and normal angle, plus invalid reasons (input-invalid, no-neighbor, normal-missing,
+  normal-mismatch, reference-boundary) computed over a once-per-call reference KD-tree.
