@@ -1,0 +1,30 @@
+function(pointcloudad_enable_sanitizers target enable_asan enable_ubsan)
+  if(NOT enable_asan AND NOT enable_ubsan)
+    return()
+  endif()
+
+  if(MSVC)
+    if(enable_ubsan)
+      message(FATAL_ERROR "UBSan is not supported by this project's MSVC preset")
+    endif()
+    if(enable_asan)
+      target_compile_options(${target} PRIVATE /fsanitize=address)
+      target_link_options(${target} PRIVATE /INCREMENTAL:NO)
+    endif()
+    return()
+  endif()
+
+  set(sanitizers "")
+  if(enable_asan)
+    list(APPEND sanitizers address)
+  endif()
+  if(enable_ubsan)
+    list(APPEND sanitizers undefined)
+  endif()
+  list(JOIN sanitizers "," sanitizer_list)
+
+  target_compile_options(
+    ${target} PRIVATE "-fsanitize=${sanitizer_list}" -fno-omit-frame-pointer)
+  target_link_options(${target} PRIVATE "-fsanitize=${sanitizer_list}")
+endfunction()
+

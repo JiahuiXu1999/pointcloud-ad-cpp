@@ -1,0 +1,40 @@
+# Build output
+/out/
+/build/
+/install/
+/vcpkg_installed/
+/.vcpkg/
+/.vcpkg_cache/
+
+# Project-local agent data (not part of the source tree)
+/.workbuddy/
+
+# Broken/backup vcpkg tree left over from environment bring-up
+/vcpkg_installed.bak/
+
+# Local environment-probe and ad-hoc wrapper scripts
+/diag_vcpkg.ps1
+/diag_vcpkg.txt
+/env_probe*.txt
+/kill_probe.txt
+/kill2.txt
+/run_build_debug.ps1
+/run_build_release.ps1
+
+# Local CMake and IDE state
+/CMakeUserPresets.json
+/.vs/
+/.vscode/
+/.idea/
+*.user
+*.suo
+
+# Generated files
+compile_commands.json
+Testing/
+*.log
+
+# Platform noise
+.DS_Store
+Thumbs.db
+Desktop.ini

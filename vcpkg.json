@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "pointcloud-ad",
+  "version-semver": "0.1.0",
+  "description": "Deterministic point-cloud anomaly detection for industrial inspection",
+  "license": "Apache-2.0",
+  "dependencies": [
+    {
+      "name": "pcl",
+      "default-features": false
+    }
+  ]
+}

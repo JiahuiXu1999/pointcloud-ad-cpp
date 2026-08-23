@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-msvc:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure, build, and test
+        shell: pwsh
+        run: ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
+
+  linux-gcc:
+    runs-on: ubuntu-24.04
+    env:
+      VCPKG_ROOT: /usr/local/share/vcpkg
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure, build, and test
+        run: cmake --workflow --preset linux-gcc-release
+      - name: Verify formatting
+        run: cmake --build --preset linux-gcc-release --target format-check
+      - name: Install package
+        run: cmake --install out/build/linux-gcc-release --prefix out/install/linux-gcc-release
+      - name: Verify installed consumer
+        run: |
+          cmake -S tests/consumer -B out/consumer/linux-gcc-release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$PWD/out/install/linux-gcc-release"
+          cmake --build out/consumer/linux-gcc-release
+          ./out/consumer/linux-gcc-release/pointcloud_ad_consumer
+
+  linux-clang-sanitizers:
+    runs-on: ubuntu-24.04
+    env:
+      CC: clang
+      CXX: clang++
+      VCPKG_ROOT: /usr/local/share/vcpkg
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure, build, and test with sanitizers
+        run: cmake --workflow --preset linux-clang-asan
