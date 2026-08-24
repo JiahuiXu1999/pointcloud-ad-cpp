@@ -61,3 +61,5 @@ public API release is published.
   3D Euclidean clustering per class, and minimum-cluster-size filtering.
 - M6 missing-material clustering over `no_neighbor` reference points with the same 3D Euclidean
   clustering backend and minimum-cluster-size filtering.
+- M6 defect-region measurement (centroid, AABB, deviation statistics, approximate area) and a
+  configurable max-deviation severity rule mapping to info/warning/reject.

@@ -67,6 +67,8 @@ target_sources(
     src/core/version.cpp
     src/detection/defect_cluster.cpp
     src/detection/defect_cluster.hpp
+    src/detection/defect_region.cpp
+    src/detection/defect_region.hpp
     src/io/pcd_adapter.cpp
     src/io/pcd_adapter.hpp
     src/io/ply_adapter.cpp

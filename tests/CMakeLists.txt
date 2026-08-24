@@ -236,6 +236,35 @@ pointcloudad_enable_clang_tidy(
 add_test(NAME pointcloud_ad.unit.defect_cluster COMMAND pointcloud_ad_defect_cluster_tests)
 
 add_executable(
+  pointcloud_ad_defect_region_tests
+  unit/defect_region_test.cpp
+  ${PROJECT_SOURCE_DIR}/src/detection/defect_region.cpp
+  ${PROJECT_SOURCE_DIR}/src/detection/defect_cluster.cpp
+  ${PROJECT_SOURCE_DIR}/src/comparison/deviation_field.cpp
+  ${PROJECT_SOURCE_DIR}/src/backends/pcl/pcl_comparison_backend.cpp
+  ${PROJECT_SOURCE_DIR}/src/backends/pcl/pcl_cluster_backend.cpp)
+target_compile_features(pointcloud_ad_defect_region_tests PRIVATE cxx_std_20)
+target_include_directories(
+  pointcloud_ad_defect_region_tests
+  PRIVATE
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/src/detection
+    ${PROJECT_SOURCE_DIR}/src/comparison
+    ${PROJECT_SOURCE_DIR}/src/backends/pcl)
+target_link_libraries(
+  pointcloud_ad_defect_region_tests
+  PRIVATE pcl_common pcl_kdtree pcl_search)
+pointcloudad_set_warnings(
+  pointcloud_ad_defect_region_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+pointcloudad_enable_sanitizers(
+  pointcloud_ad_defect_region_tests
+  ${POINTCLOUDAD_ENABLE_ASAN}
+  ${POINTCLOUDAD_ENABLE_UBSAN})
+pointcloudad_enable_clang_tidy(
+  pointcloud_ad_defect_region_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+add_test(NAME pointcloud_ad.unit.defect_region COMMAND pointcloud_ad_defect_region_tests)
+
+add_executable(
   pointcloud_ad_pcl_backend_tests
   unit/pcl_backend_test.cpp
   ${PROJECT_SOURCE_DIR}/src/backends/pcl/pcl_backend.cpp)
