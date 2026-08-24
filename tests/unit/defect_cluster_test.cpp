@@ -1,3 +1,4 @@
+#include "coverage_field.hpp"
 #include "defect_cluster.hpp"
 #include "deviation_field.hpp"
 
@@ -22,9 +23,12 @@ using pointcloud_ad::ValidatedComparisonConfig;
 using pointcloud_ad::ValidatedDetectionConfig;
 using pointcloud_ad::Vec3d;
 using pointcloud_ad::Vec3f;
+using pointcloud_ad::comparison::compute_coverage_field;
 using pointcloud_ad::comparison::compute_deviation_field;
+using pointcloud_ad::comparison::CoverageReason;
 using pointcloud_ad::comparison::DeviationReason;
 using pointcloud_ad::detection::cluster_deviation_defects;
+using pointcloud_ad::detection::cluster_missing_material;
 using pointcloud_ad::detection::DefectType;
 
 bool expect(bool condition, std::string_view message) {
@@ -155,6 +159,49 @@ int main() {
       auto clusters = cluster_deviation_defects(tiny.surface.view(), field.value(), detection);
       passed &= expect(static_cast<bool>(clusters) && clusters.value().empty(),
                        "a bump below the minimum cluster size must be filtered out");
+    }
+  }
+
+  // AC-005: a missing block in the scan clusters into a single missing_material region over the
+  // reference hole core.
+  {
+    std::vector<Vec3f> hole_points;
+    std::vector<Vec3f> hole_normals;
+    for (double x = -5.0; x <= 5.0 + 1.0e-9; x += 0.5) {
+      for (double y = -5.0; y <= 5.0 + 1.0e-9; y += 0.5) {
+        if (std::abs(x) < 3.0 && std::abs(y) < 3.0) {
+          continue;
+        }
+        hole_points.push_back({static_cast<float>(x), static_cast<float>(y), 0.0F});
+        hole_normals.push_back({0.0F, 0.0F, 1.0F});
+      }
+    }
+    auto scan = OwnedSurface::create(std::move(hole_points), std::move(hole_normals), {},
+                                     std::nullopt, LengthUnit::millimeter, scan_frame)
+                    .value();
+
+    ValidatedComparisonConfig tight_comparison{1.0, 35.0, 0.6, 0.75};
+    auto field =
+        compute_coverage_field(reference.surface.view(), scan.view(), {}, tight_comparison);
+    passed &= expect(static_cast<bool>(field), "hole coverage field must be computed");
+    if (field) {
+      auto clusters = cluster_missing_material(reference.surface.view(), field.value(), detection);
+      passed &= expect(static_cast<bool>(clusters), "missing-material clustering must succeed");
+      if (clusters) {
+        passed &= expect(clusters.value().size() == 1U &&
+                             clusters.value()[0].type == DefectType::missing_material,
+                         "a single missing block must form one missing_material cluster");
+        if (clusters.value().size() == 1U) {
+          const auto& samples = field.value().samples();
+          bool all_no_neighbor = true;
+          for (const std::size_t index : clusters.value()[0].point_indices) {
+            all_no_neighbor =
+                all_no_neighbor && samples[index].reason == CoverageReason::no_neighbor;
+          }
+          passed &= expect(all_no_neighbor,
+                           "every missing_material member must be a no_neighbor reference point");
+        }
+      }
     }
   }
 

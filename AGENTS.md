@@ -47,6 +47,6 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 ## Current milestone
 
 M0, M0.1/B00, M1, M2, M3, M4, and M5 are complete. M6 is in progress: PCAD-DET-001 (dent/bump
-classification and clustering) is complete. The next permitted atomic task is M6/PCAD-DET-002:
-implement missing-material clustering without changing status/exit-code semantics or exposing
-PCL/Eigen from installed headers.
+clustering) and PCAD-DET-002 (missing-material clustering) are complete. The next permitted atomic
+task is M6/PCAD-DET-003: implement region measurements and severity rules without changing
+status/exit-code semantics or exposing PCL/Eigen from installed headers.

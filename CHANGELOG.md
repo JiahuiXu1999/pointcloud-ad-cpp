@@ -59,3 +59,5 @@ public API release is published.
   ratio, and deterministic per-reason counts over both fields.
 - M6 dent/bump classification and clustering with threshold-based candidate selection, separate
   3D Euclidean clustering per class, and minimum-cluster-size filtering.
+- M6 missing-material clustering over `no_neighbor` reference points with the same 3D Euclidean
+  clustering backend and minimum-cluster-size filtering.

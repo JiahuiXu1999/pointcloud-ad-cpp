@@ -113,4 +113,60 @@ cluster_deviation_defects(SurfaceView aligned_scan, const comparison::DeviationF
   }
 }
 
+Result<std::vector<DefectCluster>>
+cluster_missing_material(SurfaceView reference, const comparison::CoverageField& field,
+                         const ValidatedDetectionConfig& config) noexcept {
+  try {
+    if (reference.unit() != LengthUnit::millimeter) {
+      return Result<std::vector<DefectCluster>>::failure(detection_error(
+          ErrorCode::invalid_input, "reference.unit", "must be normalized to millimetres"));
+    }
+    if (field.size() != reference.storage_size()) {
+      return Result<std::vector<DefectCluster>>::failure(detection_error(
+          ErrorCode::invalid_input, "field", "must span the reference storage layout"));
+    }
+
+    std::vector<std::size_t> candidates;
+    const auto samples = field.samples();
+    for (std::size_t index = 0; index < samples.size(); ++index) {
+      if (samples[index].reason == comparison::CoverageReason::no_neighbor) {
+        candidates.push_back(index);
+      }
+    }
+    if (candidates.empty()) {
+      return Result<std::vector<DefectCluster>>::success({});
+    }
+
+    auto labels = backends::pcl_backend::euclidean_cluster(reference, candidates,
+                                                           config.cluster_tolerance_mm);
+    if (!labels) {
+      return Result<std::vector<DefectCluster>>::failure(std::move(labels).error());
+    }
+
+    std::unordered_map<std::int32_t, std::vector<std::size_t>> groups;
+    for (std::size_t candidate = 0; candidate < candidates.size(); ++candidate) {
+      groups[labels.value()[candidate]].push_back(candidates[candidate]);
+    }
+
+    std::vector<DefectCluster> clusters;
+    for (auto& [label, indices] : groups) {
+      (void)label;
+      if (indices.size() < config.min_cluster_points) {
+        continue;
+      }
+      DefectCluster cluster;
+      cluster.type = DefectType::missing_material;
+      cluster.point_indices = std::move(indices);
+      clusters.push_back(std::move(cluster));
+    }
+    return Result<std::vector<DefectCluster>>::success(std::move(clusters));
+  } catch (const std::exception& exception) {
+    return Result<std::vector<DefectCluster>>::failure(
+        detection_error(ErrorCode::internal_error, "exception", exception.what()));
+  } catch (...) {
+    return Result<std::vector<DefectCluster>>::failure(
+        detection_error(ErrorCode::internal_error, "exception", "unknown exception"));
+  }
+}
+
 } // namespace pointcloud_ad::detection

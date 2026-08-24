@@ -210,6 +210,7 @@ add_executable(
   pointcloud_ad_defect_cluster_tests
   unit/defect_cluster_test.cpp
   ${PROJECT_SOURCE_DIR}/src/detection/defect_cluster.cpp
+  ${PROJECT_SOURCE_DIR}/src/comparison/coverage_field.cpp
   ${PROJECT_SOURCE_DIR}/src/comparison/deviation_field.cpp
   ${PROJECT_SOURCE_DIR}/src/backends/pcl/pcl_comparison_backend.cpp
   ${PROJECT_SOURCE_DIR}/src/backends/pcl/pcl_cluster_backend.cpp)
