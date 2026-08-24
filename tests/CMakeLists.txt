@@ -186,6 +186,27 @@ pointcloudad_enable_clang_tidy(
 add_test(NAME pointcloud_ad.unit.coverage_field COMMAND pointcloud_ad_coverage_field_tests)
 
 add_executable(
+  pointcloud_ad_comparison_statistics_tests
+  unit/comparison_statistics_test.cpp
+  ${PROJECT_SOURCE_DIR}/src/comparison/comparison_statistics.cpp)
+target_compile_features(pointcloud_ad_comparison_statistics_tests PRIVATE cxx_std_20)
+target_include_directories(
+  pointcloud_ad_comparison_statistics_tests
+  PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/comparison)
+target_link_libraries(pointcloud_ad_comparison_statistics_tests PRIVATE PointCloudAD::pointcloud_ad)
+pointcloudad_set_warnings(
+  pointcloud_ad_comparison_statistics_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+pointcloudad_enable_sanitizers(
+  pointcloud_ad_comparison_statistics_tests
+  ${POINTCLOUDAD_ENABLE_ASAN}
+  ${POINTCLOUDAD_ENABLE_UBSAN})
+pointcloudad_enable_clang_tidy(
+  pointcloud_ad_comparison_statistics_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+add_test(
+  NAME pointcloud_ad.unit.comparison_statistics
+  COMMAND pointcloud_ad_comparison_statistics_tests)
+
+add_executable(
   pointcloud_ad_pcl_backend_tests
   unit/pcl_backend_test.cpp
   ${PROJECT_SOURCE_DIR}/src/backends/pcl/pcl_backend.cpp)

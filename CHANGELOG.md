@@ -55,3 +55,5 @@ public API release is published.
   normal-mismatch, reference-boundary) computed over a once-per-call reference KD-tree.
 - M5 reference-to-scan coverage field with a per-storage-index covered/no-neighbor/scan-boundary
   sample and an aggregate coverage ratio, computed over a once-per-call scan KD-tree.
+- M5 deviation and coverage statistics with mean/RMS/max-abs/p95-abs deviation summaries, coverage
+  ratio, and deterministic per-reason counts over both fields.

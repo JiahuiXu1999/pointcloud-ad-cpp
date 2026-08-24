@@ -56,6 +56,8 @@ target_sources(
     src/backends/pcl/pcl_preprocess_backend.hpp
     src/backends/pcl/pcl_registration_backend.cpp
     src/backends/pcl/pcl_registration_backend.hpp
+    src/comparison/comparison_statistics.cpp
+    src/comparison/comparison_statistics.hpp
     src/comparison/coverage_field.cpp
     src/comparison/coverage_field.hpp
     src/comparison/deviation_field.cpp
