@@ -57,3 +57,5 @@ public API release is published.
   sample and an aggregate coverage ratio, computed over a once-per-call scan KD-tree.
 - M5 deviation and coverage statistics with mean/RMS/max-abs/p95-abs deviation summaries, coverage
   ratio, and deterministic per-reason counts over both fields.
+- M6 dent/bump classification and clustering with threshold-based candidate selection, separate
+  3D Euclidean clustering per class, and minimum-cluster-size filtering.

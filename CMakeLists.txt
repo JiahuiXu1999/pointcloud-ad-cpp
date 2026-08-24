@@ -50,6 +50,8 @@ target_sources(
     src/backends/pcl/pcl_backend.hpp
     src/backends/pcl/pcl_comparison_backend.cpp
     src/backends/pcl/pcl_comparison_backend.hpp
+    src/backends/pcl/pcl_cluster_backend.cpp
+    src/backends/pcl/pcl_cluster_backend.hpp
     src/backends/pcl/pcl_io_backend.cpp
     src/backends/pcl/pcl_io_backend.hpp
     src/backends/pcl/pcl_preprocess_backend.cpp
@@ -63,6 +65,8 @@ target_sources(
     src/comparison/deviation_field.cpp
     src/comparison/deviation_field.hpp
     src/core/version.cpp
+    src/detection/defect_cluster.cpp
+    src/detection/defect_cluster.hpp
     src/io/pcd_adapter.cpp
     src/io/pcd_adapter.hpp
     src/io/ply_adapter.cpp
@@ -105,6 +109,7 @@ target_include_directories(
   pointcloud_ad
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/pcl
           ${CMAKE_CURRENT_SOURCE_DIR}/src/comparison
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/detection
           ${CMAKE_CURRENT_SOURCE_DIR}/src/io
           ${CMAKE_CURRENT_SOURCE_DIR}/src/preprocess
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registration

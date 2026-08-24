@@ -48,8 +48,8 @@ thresholds are requested after M6; repository and maintainer identity are needed
 | PCAD-CMP-001 | M5 | Scan-to-reference deviation field | REG-003 | AC-003/004 | Complete |
 | PCAD-CMP-002 | M5 | Reference-to-scan coverage field | CMP-001 | AC-005/006 | Complete |
 | PCAD-CMP-003 | M5 | Invalid reasons and statistics | CMP-002 | Reason matrix | Complete |
-| PCAD-DET-001 | M6 | Dent/bump classification and clustering | CMP-003 | AC-003/004 | Next |
-| PCAD-DET-002 | M6 | Missing-material clustering | DET-001 | AC-005 | Pending |
+| PCAD-DET-001 | M6 | Dent/bump classification and clustering | CMP-003 | AC-003/004 | Complete |
+| PCAD-DET-002 | M6 | Missing-material clustering | DET-001 | AC-005 | Next |
 | PCAD-DET-003 | M6 | Region measurements and severity rules | DET-002 | Region tests | Pending |
 | PCAD-PIPE-001 | M7 | Stage orchestration, short-circuit, verdict | DET-003 | AC-001..010 | Pending |
 | PCAD-SER-001 | M7 | Config/result schemas and JSON | PIPE-001 | Schema/golden tests | Pending |
