@@ -12,7 +12,7 @@ jobs:
   windows-msvc:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Configure, build, and test
         shell: pwsh
         run: ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
@@ -20,9 +20,17 @@ jobs:
   linux-gcc:
     runs-on: ubuntu-24.04
     env:
-      VCPKG_ROOT: /usr/local/share/vcpkg
+      VCPKG_ROOT: ${{ github.workspace }}/.vcpkg
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Check out pinned vcpkg baseline
+        uses: actions/checkout@v7
+        with:
+          repository: microsoft/vcpkg
+          ref: 45f9f39362a4c52e2b1fbe57b7e649db7f3d96d4
+          path: .vcpkg
+      - name: Bootstrap vcpkg
+        run: ./.vcpkg/bootstrap-vcpkg.sh -disableMetrics
       - name: Configure, build, and test
         run: cmake --workflow --preset linux-gcc-release
       - name: Verify formatting
@@ -42,8 +50,16 @@ jobs:
     env:
       CC: clang
       CXX: clang++
-      VCPKG_ROOT: /usr/local/share/vcpkg
+      VCPKG_ROOT: ${{ github.workspace }}/.vcpkg
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - name: Check out pinned vcpkg baseline
+        uses: actions/checkout@v7
+        with:
+          repository: microsoft/vcpkg
+          ref: 45f9f39362a4c52e2b1fbe57b7e649db7f3d96d4
+          path: .vcpkg
+      - name: Bootstrap vcpkg
+        run: ./.vcpkg/bootstrap-vcpkg.sh -disableMetrics
       - name: Configure, build, and test with sanitizers
         run: cmake --workflow --preset linux-clang-asan
