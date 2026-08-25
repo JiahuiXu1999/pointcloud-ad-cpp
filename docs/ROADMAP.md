@@ -51,8 +51,8 @@ thresholds are requested after M6; repository and maintainer identity are needed
 | PCAD-DET-001 | M6 | Dent/bump classification and clustering | CMP-003 | AC-003/004 | Complete |
 | PCAD-DET-002 | M6 | Missing-material clustering | DET-001 | AC-005 | Complete |
 | PCAD-DET-003 | M6 | Region measurements and severity rules | DET-002 | Region tests | Complete |
-| PCAD-PIPE-001 | M7 | Stage orchestration, short-circuit, verdict | DET-003 | AC-001..010 | Next |
-| PCAD-SER-001 | M7 | Config/result schemas and JSON | PIPE-001 | Schema/golden tests | Pending |
+| PCAD-PIPE-001 | M7 | Stage orchestration, short-circuit, verdict | DET-003 | AC-001..010 | Complete |
+| PCAD-SER-001 | M7 | Config/result schemas and JSON | PIPE-001 | Schema/golden tests | Next |
 | PCAD-SER-002 | M7 | PLY fields, manifest, and hashes | SER-001 | Output tests | Pending |
 | PCAD-CLI-001 | M7 | `inspect`, `validate-config`, `version` | SER-002 | CLI integration | Pending |
 | PCAD-TEST-001 | M8 | Synthetic generator and acceptance matrix | CLI-001 | AC-001..012 | Pending |

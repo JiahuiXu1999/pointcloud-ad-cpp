@@ -13,6 +13,19 @@ pointcloudad_enable_clang_tidy(
 
 add_test(NAME pointcloud_ad.unit.version COMMAND pointcloud_ad_unit_tests)
 
+add_executable(pointcloud_ad_pipeline_tests unit/pipeline_test.cpp)
+target_compile_features(pointcloud_ad_pipeline_tests PRIVATE cxx_std_20)
+target_link_libraries(pointcloud_ad_pipeline_tests PRIVATE PointCloudAD::pointcloud_ad)
+pointcloudad_set_warnings(
+  pointcloud_ad_pipeline_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+pointcloudad_enable_sanitizers(
+  pointcloud_ad_pipeline_tests
+  ${POINTCLOUDAD_ENABLE_ASAN}
+  ${POINTCLOUDAD_ENABLE_UBSAN})
+pointcloudad_enable_clang_tidy(
+  pointcloud_ad_pipeline_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+add_test(NAME pointcloud_ad.unit.pipeline COMMAND pointcloud_ad_pipeline_tests)
+
 add_executable(pointcloud_ad_result_tests unit/result_test.cpp)
 target_compile_features(pointcloud_ad_result_tests PRIVATE cxx_std_20)
 target_link_libraries(pointcloud_ad_result_tests PRIVATE PointCloudAD::pointcloud_ad)

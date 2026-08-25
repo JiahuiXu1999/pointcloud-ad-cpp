@@ -46,6 +46,7 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 
 ## Current milestone
 
-M0, M0.1/B00, M1, M2, M3, M4, M5, and M6 are complete. The next permitted atomic task is
-M7/PCAD-PIPE-001: implement stage orchestration, short-circuiting, and verdict without changing
-status/exit-code semantics or exposing PCL/Eigen from installed headers.
+M0, M0.1/B00, M1, M2, M3, M4, M5, and M6 are complete. M7 is in progress: PCAD-PIPE-001 (stage
+orchestration, short-circuit, and verdict) is complete. The next permitted atomic task is
+M7/PCAD-SER-001: implement config/result schemas and JSON without changing status/exit-code
+semantics or exposing PCL/Eigen from installed headers.

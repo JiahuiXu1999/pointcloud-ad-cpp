@@ -81,7 +81,8 @@ foreach ($line in $environmentLines) {
 $env:VCPKG_ROOT = $userVcpkgRoot
 $env:POINTCLOUDAD_NINJA = $bundledNinja
 $env:VSLANG = '1033'
-$env:Path = "$bundledNinjaDirectory;$([IO.Path]::GetDirectoryName($cmake));$env:Path"
+$vcpkgRuntime = Join-Path $projectRoot 'vcpkg_installed\x64-windows\bin'
+$env:Path = "$vcpkgRuntime;$bundledNinjaDirectory;$([IO.Path]::GetDirectoryName($cmake));$env:Path"
 
 $dumpbinCommand = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
 if (-not $dumpbinCommand) {

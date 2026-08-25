@@ -81,6 +81,7 @@ target_sources(
     src/preprocess/voxel_sampling.hpp
     src/registration/registration_gate.cpp
     src/registration/registration_gate.hpp
+    src/pipeline/inspection_pipeline.cpp
   PUBLIC
     FILE_SET public_headers
     TYPE HEADERS
@@ -88,6 +89,8 @@ target_sources(
     FILES
       include/pointcloud_ad/config.hpp
       include/pointcloud_ad/geometry.hpp
+      include/pointcloud_ad/inspection_pipeline.hpp
+      include/pointcloud_ad/inspection_result.hpp
       include/pointcloud_ad/normalization.hpp
       include/pointcloud_ad/registration.hpp
       include/pointcloud_ad/result.hpp
@@ -113,6 +116,7 @@ target_include_directories(
           ${CMAKE_CURRENT_SOURCE_DIR}/src/comparison
           ${CMAKE_CURRENT_SOURCE_DIR}/src/detection
           ${CMAKE_CURRENT_SOURCE_DIR}/src/io
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/pipeline
           ${CMAKE_CURRENT_SOURCE_DIR}/src/preprocess
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registration
   PUBLIC

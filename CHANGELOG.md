@@ -63,3 +63,6 @@ public API release is published.
   clustering backend and minimum-cluster-size filtering.
 - M6 defect-region measurement (centroid, AABB, deviation statistics, approximate area) and a
   configurable max-deviation severity rule mapping to info/warning/reject.
+- M7 public `InspectionPipeline` entry point and `InspectionResult` report model orchestrating the
+  normalize/preprocess/register/gate/transform/compare/coverage-gate/detect/finalize stages with
+  short-circuit and PASS/FAIL/INDETERMINATE verdict semantics.

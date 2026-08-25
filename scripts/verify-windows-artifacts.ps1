@@ -49,8 +49,12 @@ $exportText = $exports -join "`n"
 if ($LASTEXITCODE -ne 0 -or $exportText -notmatch '\?version_string@pointcloud_ad@@') {
   throw "The public pointcloud_ad::version_string symbol is not exported by '$buildDll'."
 }
-if ($exportText -notmatch '(?m)^\s+1 number of names\s*$') {
-  throw "'$buildDll' must export exactly its one declared public ABI symbol."
+if ($exportText -notmatch 'create@InspectionPipeline@pointcloud_ad@@' -or
+    $exportText -notmatch 'run@InspectionPipeline@pointcloud_ad@@') {
+  throw "The public InspectionPipeline create/run symbols are not exported by '$buildDll'."
+}
+if ($exportText -match '@backends@|@comparison@|@detection@|@preprocess@|@registration@|@pcl_backend@') {
+  throw "Internal backend or module symbols must not be exported by '$buildDll'."
 }
 
 Assert-DynamicDependency $buildCli 'pointcloud_ad.dll'
@@ -63,7 +67,10 @@ if ($InstallDirectory) {
   $installHeaders = @(
     (Join-Path $InstallDirectory 'include\pointcloud_ad\config.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\geometry.hpp'),
+    (Join-Path $InstallDirectory 'include\pointcloud_ad\inspection_pipeline.hpp'),
+    (Join-Path $InstallDirectory 'include\pointcloud_ad\inspection_result.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\normalization.hpp'),
+    (Join-Path $InstallDirectory 'include\pointcloud_ad\registration.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\result.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\status.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\surface.hpp'),
