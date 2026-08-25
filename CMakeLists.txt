@@ -22,6 +22,7 @@ if(POLICY CMP0144)
 endif()
 
 find_package(PCL CONFIG REQUIRED COMPONENTS common features io kdtree search)
+find_package(nlohmann_json CONFIG REQUIRED)
 
 option(POINTCLOUDAD_BUILD_CLI "Build the pcad command-line application" ON)
 option(POINTCLOUDAD_BUILD_TESTS "Build PointCloudAD tests" ${PROJECT_IS_TOP_LEVEL})
@@ -82,6 +83,8 @@ target_sources(
     src/registration/registration_gate.cpp
     src/registration/registration_gate.hpp
     src/pipeline/inspection_pipeline.cpp
+    src/serialization/json_serialization.cpp
+    src/serialization/json_serialization.hpp
   PUBLIC
     FILE_SET public_headers
     TYPE HEADERS
@@ -119,12 +122,14 @@ target_include_directories(
           ${CMAKE_CURRENT_SOURCE_DIR}/src/pipeline
           ${CMAKE_CURRENT_SOURCE_DIR}/src/preprocess
           ${CMAKE_CURRENT_SOURCE_DIR}/src/registration
+          ${CMAKE_CURRENT_SOURCE_DIR}/src/serialization
   PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(
-  pointcloud_ad PRIVATE pcl_common pcl_features pcl_io pcl_kdtree pcl_search)
+  pointcloud_ad PRIVATE pcl_common pcl_features pcl_io pcl_kdtree pcl_search
+                         nlohmann_json::nlohmann_json)
 
 pointcloudad_set_warnings(pointcloud_ad ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(

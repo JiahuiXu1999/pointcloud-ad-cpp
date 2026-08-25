@@ -66,3 +66,5 @@ public API release is published.
 - M7 public `InspectionPipeline` entry point and `InspectionResult` report model orchestrating the
   normalize/preprocess/register/gate/transform/compare/coverage-gate/detect/finalize stages with
   short-circuit and PASS/FAIL/INDETERMINATE verdict semantics.
+- M7 versioned config/result JSON serialization behind an internal facade (ADR-0008, nlohmann/json)
+  with lowercase snake_case enums, UTC timestamps, and null for non-finite measurements.
