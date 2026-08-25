@@ -3,17 +3,18 @@
 Deterministic point-cloud anomaly detection for industrial inspection, implemented as a
 portable C++20 library and command-line application.
 
-> Project status: **M0 through M7 are complete; M8 hardening (acceptance matrix, determinism,
-> sanitizers, and benchmarks) is next**. The official library artifact is a DLL/shared library with
-> an audited public export. Public contracts cover errors/results, units, frames, right-handed
-> scan-to-reference transforms, validated configuration, borrowed/owned surfaces, millimetre/frame
-> normalization, and an internal PCL conversion facade, deterministic binary/ASCII PLY and PCD I/O,
-> finite-value/ROI validity and deterministic voxel/normal/boundary preprocessing, backend-neutral
-> registration contracts with robust point-to-plane ICP and quality gates, directional deviation and
-> coverage fields with statistics, defect classification/clustering/measurement/severity, and the
+> Project status: **M0 through M7 and M8/PCAD-TEST-001 are complete; M8 continues with sanitizer and
+> benchmark gates**. The official library artifact is a DLL/shared library with an audited public
+> export. Public contracts cover errors/results, units, frames, right-handed scan-to-reference
+> transforms, validated configuration, borrowed/owned surfaces, millimetre/frame normalization, and
+> an internal PCL conversion facade, deterministic binary/ASCII PLY and PCD I/O, finite-value/ROI
+> validity and deterministic voxel/normal/boundary preprocessing, backend-neutral registration
+> contracts with robust point-to-plane ICP and quality gates, directional deviation and coverage
+> fields with statistics, defect classification/clustering/measurement/severity, and the
 > `InspectionPipeline` / `InspectionResult` product slice with versioned JSON serialization plus an
 > internal attribute-PLY/manifest/hash output facade. The `pcad` CLI runs `inspect`,
-> `validate-config`, and `version`. Industrial M3 validation remains pending real sample clouds.
+> `validate-config`, and `version`, and a deterministic synthetic acceptance matrix covers
+> AC-001 through AC-012. Industrial M3 validation remains pending real sample clouds.
 
 ## Build contract
 

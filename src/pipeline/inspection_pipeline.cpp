@@ -355,8 +355,9 @@ to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
     }
   }
 
-  // P10: finalize the verdict.
-  if (coverage_failed) {
+  // P10: finalize the verdict. No trustworthy deviation evidence (for example when normals cannot
+  // be oriented) must never produce a PASS; only a complete comparison can pass.
+  if (coverage_failed || result.deviations.valid_count == 0U) {
     result.verdict = Verdict::indeterminate;
   } else {
     result.verdict = has_reject ? Verdict::fail : Verdict::pass;

@@ -46,7 +46,6 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 
 ## Current milestone
 
-M0, M0.1/B00, M1, M2, M3, M4, M5, M6, and M7 are complete. M8 is next: PCAD-TEST-001 (synthetic
-generator and acceptance matrix AC-001..012), followed by PCAD-TEST-002 (consumer, sanitizers,
-determinism gates) and PCAD-BENCH-001 (staged benchmarks). The next permitted atomic task is
-M8/PCAD-TEST-001.
+M0, M0.1/B00, M1, M2, M3, M4, M5, M6, M7, and M8/PCAD-TEST-001 are complete. M8 continues with
+PCAD-TEST-002 (consumer, sanitizers, determinism gates), then PCAD-BENCH-001 (staged benchmarks).
+The next permitted atomic task is M8/PCAD-TEST-002.

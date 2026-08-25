@@ -74,3 +74,8 @@ public API release is published.
 - M7 `pcad` command-line vertical slice with `validate-config`, `inspect`, and `version` commands;
   `inspect` reads config and point-cloud files (by `.ply`/`.pcd` extension) and writes `result.json`
   and `manifest.json` while keeping inspection verdicts separate from the process exit code.
+- M8 deterministic synthetic scene generator and acceptance matrix (`tests/synthetic/`) covering
+  AC-001 through AC-012: identical/rigid/bump/dent/missing/dropout/bad-pose scenes with ground-truth
+  metadata, plus flipped-normal, boundary-mask, NaN-input, and ten-run determinism checks. The
+  pipeline now reports INDETERMINATE when no trustworthy deviation sample exists (for example when
+  normals cannot be oriented), so an unproven comparison never produces a PASS.
