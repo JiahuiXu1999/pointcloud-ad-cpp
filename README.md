@@ -3,8 +3,8 @@
 Deterministic point-cloud anomaly detection for industrial inspection, implemented as a
 portable C++20 library and command-line application.
 
-> Project status: **M0 through M7 and M8/PCAD-TEST-001/002 are complete; M8 continues with staged
-> benchmark gates**. The official library artifact is a DLL/shared library with an audited public
+> Project status: **M0 through M8 are complete; M9 release packaging is next**. The official library
+> artifact is a DLL/shared library with an audited public
 > export. Public contracts cover errors/results, units, frames, right-handed scan-to-reference
 > transforms, validated configuration, borrowed/owned surfaces, millimetre/frame normalization, and
 > an internal PCL conversion facade, deterministic binary/ASCII PLY and PCD I/O, finite-value/ROI
@@ -114,6 +114,12 @@ Every change must preserve all of the following:
 
 The pinned vcpkg manifest installs PCL with optional features disabled. Manifest artifacts are shared
 across build presets in `vcpkg_installed/`; this generated directory is never edited manually.
+
+Build and run the opt-in staged 100k/1M-point benchmark:
+
+```powershell
+pwsh ./scripts/build.ps1 -Preset windows-msvc-release -RunBenchmark
+```
 
 M3 algorithm tests use fixed synthetic planes, masks, topology, depth discontinuities, and orientation
 hints. See [docs/validation/M3_INDUSTRIAL_SAMPLES.md](docs/validation/M3_INDUSTRIAL_SAMPLES.md) for

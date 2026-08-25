@@ -82,3 +82,6 @@ public API release is published.
 - M8 release hardening gates for installed consumers, Linux ASan/UBSan, and serialized CLI
   determinism. The CLI integration now launches ten independent inspections and requires every
   business field (excluding UTC timestamps and wall-clock timings) to remain identical.
+- M8 opt-in staged performance benchmark covering normalization, validity, and deterministic voxel
+  sampling at 100k and 1M points, with JSON timings, peak RSS, checksums, scaling limits, and a
+  recorded Windows MSVC Release baseline.

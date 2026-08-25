@@ -5,7 +5,9 @@ param(
 
   [switch]$Fresh,
 
-  [switch]$VerifyInstall
+  [switch]$VerifyInstall,
+
+  [switch]$RunBenchmark
 )
 
 $ErrorActionPreference = 'Stop'
@@ -132,6 +134,20 @@ try {
   & (Join-Path $PSScriptRoot 'verify-windows-artifacts.ps1') `
     -BuildDirectory $buildDirectory `
     -Dumpbin $dumpbin
+
+  if ($RunBenchmark) {
+    if ($Preset -ne 'windows-msvc-release') {
+      throw '-RunBenchmark requires the windows-msvc-release preset.'
+    }
+    & $cmake --build --preset $Preset --target pointcloud_ad_staged_benchmark
+    if ($LASTEXITCODE -ne 0) {
+      throw 'Staged benchmark build failed.'
+    }
+    & (Join-Path $buildDirectory 'bin\pointcloud_ad_staged_benchmark.exe')
+    if ($LASTEXITCODE -ne 0) {
+      throw 'Staged benchmark limits failed.'
+    }
+  }
 
   if ($VerifyInstall) {
     if ($Preset -ne 'windows-msvc-release') {

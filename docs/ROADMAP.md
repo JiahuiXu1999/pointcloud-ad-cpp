@@ -57,8 +57,8 @@ thresholds are requested after M6; repository and maintainer identity are needed
 | PCAD-CLI-001 | M7 | `inspect`, `validate-config`, `version` | SER-002 | CLI integration | Complete |
 | PCAD-TEST-001 | M8 | Synthetic generator and acceptance matrix | CLI-001 | AC-001..012 | Complete |
 | PCAD-TEST-002 | M8 | Consumer, sanitizers, determinism gates | TEST-001 | Release gates | Complete |
-| PCAD-BENCH-001 | M8 | 100k/1M-point staged benchmarks | TEST-002 | Baseline report | Next |
-| PCAD-REL-001 | M9 | Open-source files and release package | BENCH-001 | Release checklist | Pending |
+| PCAD-BENCH-001 | M8 | 100k/1M-point staged benchmarks | TEST-002 | Baseline report | Complete |
+| PCAD-REL-001 | M9 | Open-source files and release package | BENCH-001 | Release checklist | Next |
 
 ## Milestone themes
 

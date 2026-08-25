@@ -170,6 +170,10 @@ if(BUILD_TESTING AND POINTCLOUDAD_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
+if(PROJECT_IS_TOP_LEVEL)
+  add_subdirectory(benchmarks EXCLUDE_FROM_ALL)
+endif()
+
 set(pointcloudad_install_cmakedir
     "${CMAKE_INSTALL_LIBDIR}/cmake/PointCloudAD")
 
