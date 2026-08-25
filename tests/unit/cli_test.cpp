@@ -1,3 +1,6 @@
+#include "json_serialization.hpp"
+#include "ply_adapter.hpp"
+
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -5,6 +8,7 @@
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <pointcloud_ad/config.hpp>
 #include <pointcloud_ad/geometry.hpp>
 #include <pointcloud_ad/surface.hpp>
@@ -12,9 +16,6 @@
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include "json_serialization.hpp"
-#include "ply_adapter.hpp"
 
 #ifndef PCAD_EXE
 #define PCAD_EXE "pcad"
@@ -50,6 +51,14 @@ int run_command(const std::string& command) {
   std::ostringstream buffer;
   buffer << stream.rdbuf();
   return buffer.str();
+}
+
+[[nodiscard]] nlohmann::json business_fields(nlohmann::json document) {
+  document.erase("timings");
+  if (document.contains("provenance") && document["provenance"].is_object()) {
+    document["provenance"].erase("timestamp_utc");
+  }
+  return document;
 }
 
 [[nodiscard]] InspectionConfig make_config() {
@@ -165,21 +174,36 @@ int main() {
     passed &= expect(code != 0, "validate-config on an invalid config must fail");
   }
 
-  // inspect completes the vertical slice and writes result.json + manifest.json.
+  // Inspect completes the vertical slice and writes result.json + manifest.json. Run the CLI in
+  // ten separate processes so AC-011 covers the serialized business contract, not only repeated
+  // calls inside one process. Wall-clock timings and the UTC timestamp are intentionally volatile.
   {
-    const int code = run_command(exe + " inspect " + quote(config_path) + " " +
-                                 quote(reference_path) + " " + quote(scan_path) + " --output " +
-                                 quote(output_dir));
-    passed &= expect(code == 0, "inspect must exit 0");
+    std::optional<nlohmann::json> first_business_fields;
+    for (int iteration = 0; iteration < 10; ++iteration) {
+      const int code =
+          run_command(exe + " inspect " + quote(config_path) + " " + quote(reference_path) + " " +
+                      quote(scan_path) + " --output " + quote(output_dir));
+      passed &= expect(code == 0, "inspect must exit 0");
 
-    const std::string result_json = read_file(output_dir + "/result.json");
-    passed &= expect(!result_json.empty(), "inspect must write result.json");
-    if (!result_json.empty()) {
+      const std::string result_json = read_file(output_dir + "/result.json");
+      passed &= expect(!result_json.empty(), "inspect must write result.json");
+      if (result_json.empty()) {
+        continue;
+      }
+
       const auto document = nlohmann::json::parse(result_json);
       passed &= expect(document.contains("verdict") && document.contains("provenance"),
                        "result.json must carry verdict and provenance");
       passed &= expect(document["verdict"].get<std::string>() == "pass",
                        "identical planar clouds must yield a pass verdict");
+
+      auto current_business_fields = business_fields(document);
+      if (!first_business_fields) {
+        first_business_fields = std::move(current_business_fields);
+      } else {
+        passed &= expect(current_business_fields == *first_business_fields,
+                         "AC-011 serialized business fields must be stable across processes");
+      }
     }
 
     const std::string manifest_json = read_file(output_dir + "/manifest.json");

@@ -1,3 +1,8 @@
+#include "json_serialization.hpp"
+#include "output_writer.hpp"
+#include "pcd_adapter.hpp"
+#include "ply_adapter.hpp"
+
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -15,11 +20,6 @@
 #include <string_view>
 #include <utility>
 
-#include "json_serialization.hpp"
-#include "output_writer.hpp"
-#include "pcd_adapter.hpp"
-#include "ply_adapter.hpp"
-
 namespace {
 
 using pointcloud_ad::Error;
@@ -33,8 +33,8 @@ using pointcloud_ad::OwnedSurface;
 using pointcloud_ad::PipelineStage;
 using pointcloud_ad::Result;
 using pointcloud_ad::Verdict;
-using pointcloud_ad::serialization::ManifestEntry;
 using pointcloud_ad::serialization::build_manifest;
+using pointcloud_ad::serialization::ManifestEntry;
 using pointcloud_ad::serialization::parse_config;
 using pointcloud_ad::serialization::serialize_result;
 using pointcloud_ad::serialization::sha256_hex;
@@ -63,12 +63,14 @@ void print_help() {
 [[nodiscard]] Result<std::string> read_text_file(std::string_view path) {
   std::ifstream stream(std::string(path), std::ios::in | std::ios::binary);
   if (!stream) {
-    return Result<std::string>::failure(cli_error(ErrorCode::io_error, "cannot open " + std::string(path)));
+    return Result<std::string>::failure(
+        cli_error(ErrorCode::io_error, "cannot open " + std::string(path)));
   }
   std::ostringstream buffer;
   buffer << stream.rdbuf();
   if (stream.bad()) {
-    return Result<std::string>::failure(cli_error(ErrorCode::io_error, "cannot read " + std::string(path)));
+    return Result<std::string>::failure(
+        cli_error(ErrorCode::io_error, "cannot read " + std::string(path)));
   }
   return Result<std::string>::success(buffer.str());
 }
@@ -76,11 +78,13 @@ void print_help() {
 [[nodiscard]] Result<std::size_t> write_text_file(std::string_view path, std::string_view content) {
   std::ofstream stream(std::string(path), std::ios::out | std::ios::trunc | std::ios::binary);
   if (!stream) {
-    return Result<std::size_t>::failure(cli_error(ErrorCode::io_error, "cannot open " + std::string(path)));
+    return Result<std::size_t>::failure(
+        cli_error(ErrorCode::io_error, "cannot open " + std::string(path)));
   }
   stream.write(content.data(), static_cast<std::streamsize>(content.size()));
   if (!stream) {
-    return Result<std::size_t>::failure(cli_error(ErrorCode::io_error, "cannot write " + std::string(path)));
+    return Result<std::size_t>::failure(
+        cli_error(ErrorCode::io_error, "cannot write " + std::string(path)));
   }
   return Result<std::size_t>::success(content.size());
 }
@@ -175,9 +179,9 @@ int run_inspect(std::string_view config_path, std::string_view reference_path,
     return kExitUsage;
   }
 
-  auto reference = read_surface(reference_path, *reference_format,
-                                validated.value().input().reference_unit,
-                                validated.value().input().reference_frame);
+  auto reference =
+      read_surface(reference_path, *reference_format, validated.value().input().reference_unit,
+                   validated.value().input().reference_frame);
   if (!reference) {
     print_error(reference.error());
     return kExitError;

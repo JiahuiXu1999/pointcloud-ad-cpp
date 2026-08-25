@@ -90,14 +90,14 @@ const FrameId kScannerFrame = FrameId::create("scanner").value();
   points.reserve(source.size());
   normals.reserve(source_normals.size());
   for (std::size_t index = 0; index < source.size(); ++index) {
-    const auto transformed = transform.apply(Vec3d{source[index].x, source[index].y,
-                                                   source[index].z});
+    const auto transformed =
+        transform.apply(Vec3d{source[index].x, source[index].y, source[index].z});
     points.push_back({static_cast<float>(transformed.x), static_cast<float>(transformed.y),
                       static_cast<float>(transformed.z)});
     if (!source_normals.empty()) {
-      const auto rotated = rotate_only(transform, Vec3d{source_normals[index].x,
-                                                        source_normals[index].y,
-                                                        source_normals[index].z});
+      const auto rotated =
+          rotate_only(transform, Vec3d{source_normals[index].x, source_normals[index].y,
+                                       source_normals[index].z});
       normals.push_back({static_cast<float>(rotated.x), static_cast<float>(rotated.y),
                          static_cast<float>(rotated.z)});
     }
@@ -176,16 +176,16 @@ SyntheticScene make_rigid() {
   // Truth pose: scan->reference, 2 degrees about z plus a sub-millimetre translation, well inside
   // the registration gate's initial-pose bounds.
   const std::array<double, 16> matrix{cosine, -sine, 0.0, 0.5, sine, cosine, 0.0, 0.3,
-                                      0.0,    0.0,   1.0, 0.1, 0.0,  0.0,   0.0, 1.0};
+                                      0.0,    0.0,   1.0, 0.1, 0.0,  0.0,    0.0, 1.0};
   const auto pose = RigidTransform::create(matrix, kScannerFrame, kFixtureFrame).value();
   // The scan is expressed in scanner-frame coordinates, so it is generated with the inverse pose
   // (fixture->scanner); ICP then recovers the scan->reference pose, matching `pose`.
   const double inverse_tx = -(cosine * 0.5 + sine * 0.3);
   const double inverse_ty = -(-sine * 0.5 + cosine * 0.3);
   const double inverse_tz = -0.1;
-  const std::array<double, 16> inverse_matrix{cosine, sine, 0.0, inverse_tx, -sine, cosine,
-                                              0.0,    inverse_ty, 0.0, 0.0, 1.0, inverse_tz,
-                                              0.0,    0.0, 0.0, 1.0};
+  const std::array<double, 16> inverse_matrix{
+      cosine, sine, 0.0, inverse_tx, -sine, cosine, 0.0, inverse_ty,
+      0.0,    0.0,  1.0, inverse_tz, 0.0,   0.0,    0.0, 1.0};
   const auto inverse_pose =
       RigidTransform::create(inverse_matrix, kFixtureFrame, kScannerFrame).value();
   auto scan = apply_rigid(reference.view(), inverse_pose, kScannerFrame);
@@ -237,13 +237,14 @@ SyntheticScene make_bad_pose() {
   auto scan = make_plane_patch(kScannerFrame, 6.0, 0.5, 0.0, 1.0, 0.0, 0.0, 1.0);
   // The scan is shifted 100 mm along the normal so no correspondence exists within the ICP search
   // radius and the registration gate must reject the solve.
-  const std::array<double, 16> matrix{1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+  const std::array<double, 16> matrix{1.0, 0.0, 0.0, 0.0,   0.0, 1.0, 0.0, 0.0,
                                       0.0, 0.0, 1.0, 100.0, 0.0, 0.0, 0.0, 1.0};
   const auto pose = RigidTransform::create(matrix, kScannerFrame, kFixtureFrame).value();
   auto displaced = apply_rigid(scan.view(), pose, kScannerFrame);
   SceneTruth truth;
   truth.ground_truth_pose = pose;
-  return scene("registration_bad_pose", std::move(reference), std::move(displaced), std::move(truth));
+  return scene("registration_bad_pose", std::move(reference), std::move(displaced),
+               std::move(truth));
 }
 
 SyntheticScene make_normal_orientation() {

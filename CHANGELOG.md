@@ -79,3 +79,6 @@ public API release is published.
   metadata, plus flipped-normal, boundary-mask, NaN-input, and ten-run determinism checks. The
   pipeline now reports INDETERMINATE when no trustworthy deviation sample exists (for example when
   normals cannot be oriented), so an unproven comparison never produces a PASS.
+- M8 release hardening gates for installed consumers, Linux ASan/UBSan, and serialized CLI
+  determinism. The CLI integration now launches ten independent inspections and requires every
+  business field (excluding UTC timestamps and wall-clock timings) to remain identical.

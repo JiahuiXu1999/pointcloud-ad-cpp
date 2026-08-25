@@ -102,8 +102,7 @@ bool expect(bool condition, std::string_view message) {
   return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
-[[nodiscard]] std::size_t block_point_count(SurfaceView reference, Vec3d center,
-                                            double radius) {
+[[nodiscard]] std::size_t block_point_count(SurfaceView reference, Vec3d center, double radius) {
   std::size_t count = 0;
   for (const auto point : reference.points()) {
     const double dx = static_cast<double>(point.x) - center.x;
@@ -334,8 +333,8 @@ int main() {
         first_coverage = report.coverage.coverage_ratio;
         continue;
       }
-      passed &= expect(report.verdict == *first_verdict,
-                       "AC-011 verdict must be stable across runs");
+      passed &=
+          expect(report.verdict == *first_verdict, "AC-011 verdict must be stable across runs");
       passed &= expect(report.regions.size() == *first_regions,
                        "AC-011 region count must be stable across runs");
       passed &= expect(report.deviations.max_abs_mm == *first_max_abs,

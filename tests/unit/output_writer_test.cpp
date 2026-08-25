@@ -18,8 +18,8 @@ using pointcloud_ad::FrameId;
 using pointcloud_ad::LengthUnit;
 using pointcloud_ad::OwnedSurface;
 using pointcloud_ad::Vec3f;
-using pointcloud_ad::serialization::ManifestEntry;
 using pointcloud_ad::serialization::build_manifest;
+using pointcloud_ad::serialization::ManifestEntry;
 using pointcloud_ad::serialization::sha256_hex;
 using pointcloud_ad::serialization::write_attribute_ply;
 
@@ -31,10 +31,8 @@ bool expect(bool condition, std::string_view message) {
 }
 
 [[nodiscard]] OwnedSurface make_surface() {
-  std::vector<Vec3f> points{{0.0F, 0.0F, 0.0F},
-                            {1.0F, 0.0F, 0.0F},
-                            {0.0F, 1.0F, 0.0F},
-                            {1.0F, 1.0F, 0.0F}};
+  std::vector<Vec3f> points{
+      {0.0F, 0.0F, 0.0F}, {1.0F, 0.0F, 0.0F}, {0.0F, 1.0F, 0.0F}, {1.0F, 1.0F, 0.0F}};
   return OwnedSurface::create(std::move(points), {}, {}, std::nullopt, LengthUnit::millimeter,
                               FrameId::create("fixture").value())
       .value();
@@ -54,9 +52,9 @@ int main() {
 
   // SHA-256 matches published test vectors.
   {
-    passed &= expect(sha256_hex("") ==
-                         "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                     "SHA-256 of empty string");
+    passed &=
+        expect(sha256_hex("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+               "SHA-256 of empty string");
     passed &= expect(sha256_hex("abc") ==
                          "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
                      "SHA-256 of \"abc\"");
@@ -105,7 +103,8 @@ int main() {
 
   // build_manifest emits a versioned document listing each file with its digest.
   {
-    std::vector<ManifestEntry> entries{{"result.json", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}};
+    std::vector<ManifestEntry> entries{
+        {"result.json", "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"}};
     auto manifest = build_manifest("1.0", "pcad", entries);
     passed &= expect(static_cast<bool>(manifest), "manifest must build");
     if (manifest) {

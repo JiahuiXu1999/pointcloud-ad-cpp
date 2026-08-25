@@ -88,6 +88,9 @@ pointcloudad_enable_sanitizers(
 pointcloudad_enable_clang_tidy(
   pointcloud_ad_acceptance_matrix_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
 add_test(NAME pointcloud_ad.acceptance.matrix COMMAND pointcloud_ad_acceptance_matrix_tests)
+set_tests_properties(
+  pointcloud_ad.acceptance.matrix
+  PROPERTIES LABELS "acceptance;determinism;release-gate")
 
 add_executable(pointcloud_ad_result_tests unit/result_test.cpp)
 target_compile_features(pointcloud_ad_result_tests PRIVATE cxx_std_20)
@@ -517,4 +520,7 @@ if(TARGET pcad)
   pointcloudad_enable_clang_tidy(
     pointcloud_ad_cli_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
   add_test(NAME pointcloud_ad.cli.inspect COMMAND pointcloud_ad_cli_tests)
+  set_tests_properties(
+    pointcloud_ad.cli.inspect
+    PROPERTIES LABELS "cli;determinism;release-gate")
 endif()

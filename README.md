@@ -3,7 +3,7 @@
 Deterministic point-cloud anomaly detection for industrial inspection, implemented as a
 portable C++20 library and command-line application.
 
-> Project status: **M0 through M7 and M8/PCAD-TEST-001 are complete; M8 continues with sanitizer and
+> Project status: **M0 through M7 and M8/PCAD-TEST-001/002 are complete; M8 continues with staged
 > benchmark gates**. The official library artifact is a DLL/shared library with an audited public
 > export. Public contracts cover errors/results, units, frames, right-handed scan-to-reference
 > transforms, validated configuration, borrowed/owned surfaces, millimetre/frame normalization, and

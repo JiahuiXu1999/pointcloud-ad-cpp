@@ -26,8 +26,8 @@ struct ManifestEntry final {
 };
 
 // Builds a run manifest document listing each output file with its SHA-256 digest.
-[[nodiscard]] Result<std::string> build_manifest(std::string_view schema_version,
-                                                 std::string_view generator,
-                                                 const std::vector<ManifestEntry>& entries) noexcept;
+[[nodiscard]] Result<std::string>
+build_manifest(std::string_view schema_version, std::string_view generator,
+               const std::vector<ManifestEntry>& entries) noexcept;
 
 } // namespace pointcloud_ad::serialization
