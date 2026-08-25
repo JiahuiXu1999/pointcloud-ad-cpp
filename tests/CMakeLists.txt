@@ -34,6 +34,27 @@ pointcloudad_enable_clang_tidy(
   pointcloud_ad_serialization_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
 add_test(NAME pointcloud_ad.unit.serialization COMMAND pointcloud_ad_serialization_tests)
 
+add_executable(
+  pointcloud_ad_output_writer_tests
+  unit/output_writer_test.cpp
+  ${PROJECT_SOURCE_DIR}/src/serialization/output_writer.cpp)
+target_compile_features(pointcloud_ad_output_writer_tests PRIVATE cxx_std_20)
+target_include_directories(
+  pointcloud_ad_output_writer_tests
+  PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/serialization)
+target_link_libraries(
+  pointcloud_ad_output_writer_tests
+  PRIVATE nlohmann_json::nlohmann_json)
+pointcloudad_set_warnings(
+  pointcloud_ad_output_writer_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+pointcloudad_enable_sanitizers(
+  pointcloud_ad_output_writer_tests
+  ${POINTCLOUDAD_ENABLE_ASAN}
+  ${POINTCLOUDAD_ENABLE_UBSAN})
+pointcloudad_enable_clang_tidy(
+  pointcloud_ad_output_writer_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+add_test(NAME pointcloud_ad.unit.output_writer COMMAND pointcloud_ad_output_writer_tests)
+
 add_executable(pointcloud_ad_pipeline_tests unit/pipeline_test.cpp)
 target_compile_features(pointcloud_ad_pipeline_tests PRIVATE cxx_std_20)
 target_link_libraries(pointcloud_ad_pipeline_tests PRIVATE PointCloudAD::pointcloud_ad)
@@ -446,4 +467,33 @@ if(TARGET pcad)
   set_tests_properties(
     pointcloud_ad.cli.version PROPERTIES PASS_REGULAR_EXPRESSION
                                           "pcad 0\\.1\\.0-dev")
+
+  add_executable(
+    pointcloud_ad_cli_tests
+    unit/cli_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/io/ply_adapter.cpp
+    ${PROJECT_SOURCE_DIR}/src/backends/pcl/pcl_io_backend.cpp
+    ${PROJECT_SOURCE_DIR}/src/serialization/json_serialization.cpp)
+  target_compile_features(pointcloud_ad_cli_tests PRIVATE cxx_std_20)
+  target_compile_definitions(
+    pointcloud_ad_cli_tests PRIVATE PCAD_EXE="$<TARGET_FILE:pcad>")
+  target_include_directories(
+    pointcloud_ad_cli_tests
+    PRIVATE
+      ${PROJECT_SOURCE_DIR}/include
+      ${PROJECT_SOURCE_DIR}/src/io
+      ${PROJECT_SOURCE_DIR}/src/backends/pcl
+      ${PROJECT_SOURCE_DIR}/src/serialization)
+  target_link_libraries(
+    pointcloud_ad_cli_tests
+    PRIVATE pcl_common pcl_io nlohmann_json::nlohmann_json)
+  pointcloudad_set_warnings(
+    pointcloud_ad_cli_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+  pointcloudad_enable_sanitizers(
+    pointcloud_ad_cli_tests
+    ${POINTCLOUDAD_ENABLE_ASAN}
+    ${POINTCLOUDAD_ENABLE_UBSAN})
+  pointcloudad_enable_clang_tidy(
+    pointcloud_ad_cli_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+  add_test(NAME pointcloud_ad.cli.inspect COMMAND pointcloud_ad_cli_tests)
 endif()

@@ -46,7 +46,7 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 
 ## Current milestone
 
-M0, M0.1/B00, M1, M2, M3, M4, M5, and M6 are complete. M7 is in progress: PCAD-PIPE-001 (pipeline)
-and PCAD-SER-001 (JSON serialization) are complete. The next permitted atomic task is
-M7/PCAD-SER-002: implement PLY fields, manifest, and hashes without changing status/exit-code
-semantics or exposing PCL/Eigen from installed headers.
+M0, M0.1/B00, M1, M2, M3, M4, M5, M6, and M7 are complete. M8 is next: PCAD-TEST-001 (synthetic
+generator and acceptance matrix AC-001..012), followed by PCAD-TEST-002 (consumer, sanitizers,
+determinism gates) and PCAD-BENCH-001 (staged benchmarks). The next permitted atomic task is
+M8/PCAD-TEST-001.

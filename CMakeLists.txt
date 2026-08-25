@@ -85,6 +85,8 @@ target_sources(
     src/pipeline/inspection_pipeline.cpp
     src/serialization/json_serialization.cpp
     src/serialization/json_serialization.hpp
+    src/serialization/output_writer.cpp
+    src/serialization/output_writer.hpp
   PUBLIC
     FILE_SET public_headers
     TYPE HEADERS
@@ -139,9 +141,23 @@ pointcloudad_enable_sanitizers(
 pointcloudad_enable_clang_tidy(pointcloud_ad ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
 
 if(POINTCLOUDAD_BUILD_CLI)
-  add_executable(pcad src/cli/main.cpp)
+  add_executable(
+    pcad
+    src/cli/main.cpp
+    src/io/ply_adapter.cpp
+    src/io/pcd_adapter.cpp
+    src/backends/pcl/pcl_io_backend.cpp
+    src/serialization/json_serialization.cpp
+    src/serialization/output_writer.cpp)
   target_compile_features(pcad PRIVATE cxx_std_20)
-  target_link_libraries(pcad PRIVATE PointCloudAD::pointcloud_ad)
+  target_include_directories(
+    pcad
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/io
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/pcl
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/serialization)
+  target_link_libraries(
+    pcad
+    PRIVATE PointCloudAD::pointcloud_ad pcl_common pcl_io nlohmann_json::nlohmann_json)
   pointcloudad_set_warnings(pcad ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
   pointcloudad_enable_sanitizers(
     pcad

@@ -68,3 +68,9 @@ public API release is published.
   short-circuit and PASS/FAIL/INDETERMINATE verdict semantics.
 - M7 versioned config/result JSON serialization behind an internal facade (ADR-0008, nlohmann/json)
   with lowercase snake_case enums, UTC timestamps, and null for non-finite measurements.
+- M7 output facade for attribute PLY, run manifest, and SHA-256 hashes with deterministic ASCII PLY
+  fields (scalar/reason/region_id), a versioned manifest listing each output file and digest, and
+  published-vector-verified hashing, all internal and independent of status/exit-code semantics.
+- M7 `pcad` command-line vertical slice with `validate-config`, `inspect`, and `version` commands;
+  `inspect` reads config and point-cloud files (by `.ply`/`.pcd` extension) and writes `result.json`
+  and `manifest.json` while keeping inspection verdicts separate from the process exit code.

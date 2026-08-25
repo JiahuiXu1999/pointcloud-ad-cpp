@@ -3,17 +3,17 @@
 Deterministic point-cloud anomaly detection for industrial inspection, implemented as a
 portable C++20 library and command-line application.
 
-> Project status: **M0/M0.1 through M3 are complete; M4 registration contracts (PCAD-REG-001) are
-> complete and robust ICP is next**. The official library artifact is a DLL/shared library with an
-> audited public export. Public contracts cover errors/results, units, frames, right-handed
+> Project status: **M0 through M7 are complete; M8 hardening (acceptance matrix, determinism,
+> sanitizers, and benchmarks) is next**. The official library artifact is a DLL/shared library with
+> an audited public export. Public contracts cover errors/results, units, frames, right-handed
 > scan-to-reference transforms, validated configuration, borrowed/owned surfaces, millimetre/frame
 > normalization, and an internal PCL conversion facade, deterministic binary/ASCII PLY and PCD I/O,
-> and finite-value/ROI validity preprocessing with per-sample reasons plus deterministic voxel
-> centroids and source mappings. M3 also provides PCA/existing-normal preparation, explicit
-> orientation evidence, and organized or radius-based boundary flags. M4 introduces backend-neutral
-> registration input and metrics contracts (`include/pointcloud_ad/registration.hpp`) with validated
-> scan-to-reference transforms, solver parameters, neutral convergence status, and quantitative
-> fitness/RMSE/delta metrics. Industrial M3 validation remains pending real sample clouds.
+> finite-value/ROI validity and deterministic voxel/normal/boundary preprocessing, backend-neutral
+> registration contracts with robust point-to-plane ICP and quality gates, directional deviation and
+> coverage fields with statistics, defect classification/clustering/measurement/severity, and the
+> `InspectionPipeline` / `InspectionResult` product slice with versioned JSON serialization plus an
+> internal attribute-PLY/manifest/hash output facade. The `pcad` CLI runs `inspect`,
+> `validate-config`, and `version`. Industrial M3 validation remains pending real sample clouds.
 
 ## Build contract
 
@@ -89,10 +89,14 @@ Future modules are introduced only when their milestone begins. PCL is isolated 
 ```text
 pcad --help
 pcad --version
+pcad validate-config <config.json>
+pcad inspect <config.json> <reference.{ply,pcd}> <scan.{ply,pcd}> [--output <dir>]
 ```
 
-Unknown command-line arguments return exit code `2`. Inspection result semantics are not yet
-implemented and will remain separate from process exit status.
+`inspect` writes `result.json` and `manifest.json` into the output directory (default `.`) and
+prints the verdict. Point-cloud format is chosen by file extension, and unit/frame are taken from
+the validated configuration. Unknown command-line arguments return exit code `2`; inspection
+verdicts (pass/fail/indeterminate) never affect the process exit status.
 
 ## Quality gates
 
