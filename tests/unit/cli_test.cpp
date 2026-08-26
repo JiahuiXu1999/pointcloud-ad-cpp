@@ -17,6 +17,10 @@
 #include <string_view>
 #include <vector>
 
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
+
 #ifndef PCAD_EXE
 #define PCAD_EXE "pcad"
 #endif
@@ -43,7 +47,13 @@ bool expect(bool condition, std::string_view message) {
 }
 
 int run_command(const std::string& command) {
-  return std::system(command.c_str());
+  const int status = std::system(command.c_str());
+#ifndef _WIN32
+  if (status >= 0 && WIFEXITED(status)) {
+    return WEXITSTATUS(status);
+  }
+#endif
+  return status;
 }
 
 [[nodiscard]] std::string read_file(std::string_view path) {
