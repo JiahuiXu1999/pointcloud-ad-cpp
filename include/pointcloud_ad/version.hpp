@@ -13,7 +13,7 @@ struct Version final {
 };
 
 [[nodiscard]] constexpr Version version() noexcept {
-  return Version{0, 1, 0, "dev"};
+  return Version{0, 1, 0, {}};
 }
 
 [[nodiscard]] POINTCLOUD_AD_EXPORT std::string_view version_string() noexcept;

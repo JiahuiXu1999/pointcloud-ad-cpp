@@ -89,7 +89,14 @@ Result<NearestNeighborResult> nearest_neighbors(SurfaceView reference, SurfaceVi
       if (squared_distances[0] > squared_limit) {
         return;
       }
-      result.neighbor_index[index] = static_cast<std::int32_t>(storage_indices[indices[0]]);
+      if (indices[0] < 0) {
+        return;
+      }
+      const auto neighbor = static_cast<std::size_t>(indices[0]);
+      if (neighbor >= storage_indices.size()) {
+        return;
+      }
+      result.neighbor_index[index] = static_cast<std::int32_t>(storage_indices[neighbor]);
       result.distance_mm[index] = std::sqrt(squared_distances[0]);
     });
 

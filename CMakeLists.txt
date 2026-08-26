@@ -114,7 +114,7 @@ set_target_properties(
              VISIBILITY_INLINES_HIDDEN YES
              WINDOWS_EXPORT_ALL_SYMBOLS OFF)
 target_compile_definitions(
-  pointcloud_ad PRIVATE POINTCLOUDAD_VERSION_STRING="${PROJECT_VERSION}-dev")
+  pointcloud_ad PRIVATE POINTCLOUDAD_VERSION_STRING="${PROJECT_VERSION}")
 target_include_directories(
   pointcloud_ad
   PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/pcl
@@ -180,6 +180,7 @@ set(pointcloudad_install_cmakedir
 install(
   TARGETS pointcloud_ad
   EXPORT PointCloudADTargets
+  RUNTIME_DEPENDENCY_SET pointcloudad_runtime_dependencies
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
@@ -189,8 +190,19 @@ install(
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/pointcloud_ad")
 
 if(POINTCLOUDAD_BUILD_CLI)
-  install(TARGETS pcad RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+  install(
+    TARGETS pcad
+    RUNTIME_DEPENDENCY_SET pointcloudad_runtime_dependencies
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 endif()
+
+install(
+  RUNTIME_DEPENDENCY_SET pointcloudad_runtime_dependencies
+  PRE_EXCLUDE_REGEXES "api-ms-.*" "ext-ms-.*"
+  POST_EXCLUDE_REGEXES ".*[Ss]ystem32.*" "^/lib/.*" "^/usr/lib/.*"
+  DIRECTORIES "$<TARGET_FILE_DIR:pcl_common>" "$<TARGET_FILE_DIR:pcl_io>"
+  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
+  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 
 configure_package_config_file(
   cmake/PointCloudADConfig.cmake.in
@@ -212,7 +224,57 @@ install(
     "${CMAKE_CURRENT_BINARY_DIR}/PointCloudADConfigVersion.cmake"
   DESTINATION "${pointcloudad_install_cmakedir}")
 
+if(MSVC)
+  set(CMAKE_INSTALL_SYSTEM_RUNTIME_DESTINATION "${CMAKE_INSTALL_BINDIR}")
+  set(CMAKE_INSTALL_UCRT_LIBRARIES TRUE)
+  include(InstallRequiredSystemLibraries)
+endif()
+
+install(
+  FILES LICENSE README.md SECURITY.md THIRD_PARTY_NOTICES.md
+  DESTINATION ".")
+install(FILES docs/SDK.md DESTINATION "docs")
+install(
+  DIRECTORY examples/sdk_consumer
+  DESTINATION "examples"
+  FILES_MATCHING
+  PATTERN "CMakeLists.txt"
+  PATTERN "*.cpp")
+
+if(DEFINED VCPKG_INSTALLED_DIR AND DEFINED VCPKG_TARGET_TRIPLET)
+  set(pointcloudad_vcpkg_share
+      "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/share")
+  if(EXISTS "${pointcloudad_vcpkg_share}")
+    install(
+      DIRECTORY "${pointcloudad_vcpkg_share}/"
+      DESTINATION "share/licenses"
+      FILES_MATCHING
+      PATTERN "copyright")
+  endif()
+endif()
+
 if(PROJECT_IS_TOP_LEVEL)
   include(FormatTargets)
   pointcloudad_add_format_targets()
+
+  if(WIN32)
+    set(pointcloudad_package_platform "windows-x86_64")
+    set(CPACK_GENERATOR "ZIP")
+  elseif(APPLE)
+    set(pointcloudad_package_platform "macos-${CMAKE_SYSTEM_PROCESSOR}")
+    set(CPACK_GENERATOR "TGZ")
+  else()
+    set(pointcloudad_package_platform "linux-${CMAKE_SYSTEM_PROCESSOR}")
+    set(CPACK_GENERATOR "TGZ")
+  endif()
+  set(CPACK_PACKAGE_NAME "PointCloudAD-SDK")
+  set(CPACK_PACKAGE_VENDOR "JiahuiXu1999")
+  set(CPACK_PACKAGE_CONTACT "JiahuiXu1999")
+  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "PointCloudAD deterministic industrial inspection SDK")
+  set(CPACK_PACKAGE_VERSION "${PROJECT_VERSION}")
+  set(CPACK_PACKAGE_FILE_NAME
+      "pointcloud-ad-sdk-${PROJECT_VERSION}-${pointcloudad_package_platform}")
+  set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
+  set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY ON)
+  include(CPack)
 endif()

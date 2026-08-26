@@ -1,7 +1,7 @@
 #include "pcl_registration_backend.hpp"
 
 #include <Eigen/Core>
-#include <Eigen/SVD>
+#include <Eigen/LU>
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -31,9 +31,6 @@ struct V3 final {
   double z{};
 };
 
-[[nodiscard]] V3 operator+(V3 left, V3 right) noexcept {
-  return {left.x + right.x, left.y + right.y, left.z + right.z};
-}
 [[nodiscard]] V3 operator-(V3 left, V3 right) noexcept {
   return {left.x - right.x, left.y - right.y, left.z - right.z};
 }
@@ -140,30 +137,23 @@ using Mat4 = std::array<double, 16>;
 }
 
 // Projects the rotation block onto SO(3) so the final transform satisfies the public contract's
-// orthonormality and determinant tolerances despite accumulated floating-point drift.
+// orthonormality and determinant tolerances despite accumulated floating-point drift. ICP composes
+// rigid increments, so modified Gram-Schmidt is sufficient here and avoids a full matrix SVD.
 [[nodiscard]] Mat4 orthonormalize(const Mat4& transform) noexcept {
-  Eigen::Matrix3d rotation;
-  rotation << transform[0], transform[1], transform[2], transform[4], transform[5], transform[6],
-      transform[8], transform[9], transform[10];
-  Eigen::JacobiSVD<Eigen::Matrix3d> svd(rotation, Eigen::ComputeFullU | Eigen::ComputeFullV);
-  const Eigen::Matrix3d& left = svd.matrixU();
-  const Eigen::Matrix3d& right = svd.matrixV();
-  const double determinant = (left * right.transpose()).determinant();
-  Eigen::Matrix3d sign = Eigen::Matrix3d::Identity();
-  if (determinant < 0.0) {
-    sign(2, 2) = -1.0;
-  }
-  const Eigen::Matrix3d corrected = left * sign * right.transpose();
+  const V3 first = normalized({transform[0], transform[4], transform[8]});
+  const V3 second_source{transform[1], transform[5], transform[9]};
+  const V3 second = normalized(second_source - dot(second_source, first) * first);
+  const V3 third = normalized(cross(first, second));
   Mat4 result = transform;
-  result[0] = corrected(0, 0);
-  result[1] = corrected(0, 1);
-  result[2] = corrected(0, 2);
-  result[4] = corrected(1, 0);
-  result[5] = corrected(1, 1);
-  result[6] = corrected(1, 2);
-  result[8] = corrected(2, 0);
-  result[9] = corrected(2, 1);
-  result[10] = corrected(2, 2);
+  result[0] = first.x;
+  result[4] = first.y;
+  result[8] = first.z;
+  result[1] = second.x;
+  result[5] = second.y;
+  result[9] = second.z;
+  result[2] = third.x;
+  result[6] = third.y;
+  result[10] = third.z;
   return result;
 }
 
@@ -337,7 +327,8 @@ Result<RegistrationMetrics> align_point_to_plane(SurfaceView reference, SurfaceV
 
       const V3 rotation{twist(0), twist(1), twist(2)};
       const V3 translation{twist(3), twist(4), twist(5)};
-      current = multiply(delta_from_twist(rotation, translation), current);
+      const Mat4 delta = delta_from_twist(rotation, translation);
+      current = multiply(delta, current);
       ++completed_iterations;
 
       if (norm(rotation) < rotation_epsilon && norm(translation) < translation_epsilon) {
@@ -391,7 +382,8 @@ Result<RegistrationMetrics> align_point_to_plane(SurfaceView reference, SurfaceV
         valid_pairs == 0U ? 0.0
                           : std::sqrt(squared_residual_sum / static_cast<double>(valid_pairs));
 
-    const Mat4 relative = multiply(final_transform, inverse_rigid(initial));
+    const Mat4 initial_inverse = inverse_rigid(initial);
+    const Mat4 relative = multiply(final_transform, initial_inverse);
     const V3 relative_translation{relative[3], relative[7], relative[11]};
     const double translation_delta = norm(relative_translation);
     const double rotation_trace = relative[0] + relative[5] + relative[10];

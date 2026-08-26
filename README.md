@@ -1,9 +1,9 @@
 # PointCloudAD-CPP
 
-Deterministic point-cloud anomaly detection for industrial inspection, implemented as a
-portable C++20 library and command-line application.
+Deterministic point-cloud anomaly detection for industrial inspection, delivered as a portable
+C++20 shared-library SDK and command-line application.
 
-> Project status: **M0 through M8 are complete; M9 release packaging is next**. The official library
+> Project status: **M0 through M9 are complete and v0.1.0 is release-ready**. The official library
 > artifact is a DLL/shared library with an audited public
 > export. Public contracts cover errors/results, units, frames, right-handed scan-to-reference
 > transforms, validated configuration, borrowed/owned surfaces, millimetre/frame normalization, and
@@ -44,9 +44,18 @@ Validate Release installation and a downstream `find_package(PointCloudAD)` cons
 pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 ```
 
+Create and verify the distributable Windows SDK ZIP in an isolated runtime path:
+
+```powershell
+pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall -VerifyPackage
+```
+
 Windows build artifacts use a deterministic layout: DLLs and executables are in `bin/`, while the
 DLL import library is in `lib/`. The build script uses `dumpbin` to verify the declared public export
-and confirm that the CLI, tests, and installed consumer dynamically load `pointcloud_ad.dll`.
+and confirm that the CLI, tests, and installed consumer dynamically load `pointcloud_ad.dll`. The
+release output also contains a SHA-256 checksum; the archive contains the transitive runtime DLLs,
+public headers, CMake package, licenses, and a standalone consumer example. See
+[docs/SDK.md](docs/SDK.md) for integration and ABI guidance.
 
 ### Linux
 
@@ -111,6 +120,8 @@ Every change must preserve all of the following:
 6. Public headers remain free of backend types and includes.
 7. The Windows DLL exports only declared public ABI symbols and installed consumers receive its
    runtime dependency without using the source or build tree.
+8. The SDK archive configures and builds its bundled consumer and both packaged executables run
+   with only the package `bin/` directory and Windows system directories on `PATH`.
 
 The pinned vcpkg manifest installs PCL with optional features disabled. Manifest artifacts are shared
 across build presets in `vcpkg_installed/`; this generated directory is never edited manually.

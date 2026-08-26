@@ -1,0 +1,38 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows-sdk:
+    runs-on: windows-2022
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\.vcpkg
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check out pinned vcpkg baseline
+        uses: actions/checkout@v7
+        with:
+          repository: microsoft/vcpkg
+          ref: 45f9f39362a4c52e2b1fbe57b7e649db7f3d96d4
+          path: .vcpkg
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: ./.vcpkg/bootstrap-vcpkg.bat -disableMetrics
+      - name: Build and verify SDK package
+        shell: pwsh
+        run: ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall -VerifyPackage
+      - name: Publish GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $archive = Get-ChildItem out/package/windows-msvc-release/*.zip | Select-Object -First 1
+          $checksum = Get-Item "$($archive.FullName).sha256"
+          gh release create $env:GITHUB_REF_NAME $archive.FullName $checksum.FullName `
+            --verify-tag --generate-notes --title "PointCloudAD SDK $env:GITHUB_REF_NAME"

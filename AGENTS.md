@@ -46,6 +46,5 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 
 ## Current milestone
 
-M0, M0.1/B00, M1, M2, M3, M4, M5, M6, M7, and M8 are complete. M9 continues with PCAD-REL-001
-(open-source files, SDK packaging, examples, and the v0.1 release checklist). The next permitted
-atomic task is M9/PCAD-REL-001.
+M0, M0.1/B00, and M1 through M9 are complete. The roadmap must be extended with a new atomic task
+before further implementation work begins.

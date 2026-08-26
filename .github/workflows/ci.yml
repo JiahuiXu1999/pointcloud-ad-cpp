@@ -11,8 +11,19 @@ permissions:
 jobs:
   windows-msvc:
     runs-on: windows-2022
+    env:
+      VCPKG_ROOT: ${{ github.workspace }}\.vcpkg
     steps:
       - uses: actions/checkout@v7
+      - name: Check out pinned vcpkg baseline
+        uses: actions/checkout@v7
+        with:
+          repository: microsoft/vcpkg
+          ref: 45f9f39362a4c52e2b1fbe57b7e649db7f3d96d4
+          path: .vcpkg
+      - name: Bootstrap vcpkg
+        shell: pwsh
+        run: ./.vcpkg/bootstrap-vcpkg.bat -disableMetrics
       - name: Configure, build, and test
         shell: pwsh
         run: ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall

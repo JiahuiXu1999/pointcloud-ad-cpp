@@ -20,8 +20,8 @@ int main() {
   passed &= expect(current.major == 0, "major version must be 0");
   passed &= expect(current.minor == 1, "minor version must be 1");
   passed &= expect(current.patch == 0, "patch version must be 0");
-  passed &= expect(current.prerelease == "dev", "prerelease must be dev");
-  passed &= expect(pointcloud_ad::version_string() == "0.1.0-dev",
+  passed &= expect(current.prerelease.empty(), "release version must not have a prerelease suffix");
+  passed &= expect(pointcloud_ad::version_string() == "0.1.0",
                    "printable version must match the semantic version");
 
   return passed ? 0 : 1;

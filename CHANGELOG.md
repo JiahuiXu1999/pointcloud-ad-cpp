@@ -5,6 +5,8 @@ public API release is published.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-08-26
+
 ### Added
 
 - M0 CMake/Ninja/vcpkg engineering foundation.
@@ -85,3 +87,12 @@ public API release is published.
 - M8 opt-in staged performance benchmark covering normalization, validity, and deterministic voxel
   sampling at 100k and 1M points, with JSON timings, peak RSS, checksums, scaling limits, and a
   recorded Windows MSVC Release baseline.
+- M9 redistributable Windows SDK ZIP containing the shared library, CLI, public headers, CMake
+  package, transitive runtime DLLs, runtime notices, and a standalone consumer example.
+- Clean-package verification that rejects build-tree path leaks, rebuilds the bundled example from
+  the extracted archive, and runs the packaged CLI and consumer on a restricted runtime path.
+- Tag-driven GitHub Release automation for `v*` tags and v0.1 SDK integration, compatibility,
+  security, and redistribution documentation.
+
+[Unreleased]: https://github.com/JiahuiXu1999/pointcloud-ad-cpp/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/JiahuiXu1999/pointcloud-ad-cpp/releases/tag/v0.1.0

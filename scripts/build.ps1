@@ -7,7 +7,9 @@ param(
 
   [switch]$VerifyInstall,
 
-  [switch]$RunBenchmark
+  [switch]$RunBenchmark,
+
+  [switch]$VerifyPackage
 )
 
 $ErrorActionPreference = 'Stop'
@@ -81,6 +83,7 @@ foreach ($line in $environmentLines) {
 }
 
 $env:VCPKG_ROOT = $userVcpkgRoot
+$env:VCPKG_VISUAL_STUDIO_PATH = $vsInstallation
 $env:POINTCLOUDAD_NINJA = $bundledNinja
 $env:VSLANG = '1033'
 $vcpkgRuntime = Join-Path $projectRoot 'vcpkg_installed\x64-windows\bin'
@@ -193,6 +196,94 @@ try {
     if ($LASTEXITCODE -ne 0) {
       throw 'Consumer smoke test failed.'
     }
+  }
+
+  if ($VerifyPackage) {
+    if ($Preset -ne 'windows-msvc-release') {
+      throw '-VerifyPackage requires the windows-msvc-release preset.'
+    }
+
+    $cpack = Join-Path ([IO.Path]::GetDirectoryName($cmake)) 'cpack.exe'
+    $packageDirectory = Join-Path $projectRoot "out\package\$Preset"
+    $extractDirectory = Join-Path $projectRoot "out\package-extract\$Preset"
+    $packageConsumerDirectory = Join-Path $projectRoot "out\package-consumer\$Preset"
+    Reset-GeneratedDirectory $packageDirectory
+    Reset-GeneratedDirectory $extractDirectory
+    Reset-GeneratedDirectory $packageConsumerDirectory
+    New-Item -ItemType Directory -Path $packageDirectory, $extractDirectory | Out-Null
+
+    & $cpack -G ZIP -C Release --config (Join-Path $buildDirectory 'CPackConfig.cmake') `
+      -B $packageDirectory
+    if ($LASTEXITCODE -ne 0) {
+      throw 'CPack SDK archive generation failed.'
+    }
+
+    $archives = @(Get-ChildItem -LiteralPath $packageDirectory -Filter '*.zip' -File)
+    if ($archives.Count -ne 1) {
+      throw "Expected exactly one SDK ZIP archive, found $($archives.Count)."
+    }
+    Expand-Archive -LiteralPath $archives[0].FullName -DestinationPath $extractDirectory
+    $sdkRoots = @(Get-ChildItem -LiteralPath $extractDirectory -Directory)
+    if ($sdkRoots.Count -ne 1) {
+      throw "Expected exactly one SDK root directory, found $($sdkRoots.Count)."
+    }
+    $sdkRoot = $sdkRoots[0].FullName
+    $sdkBin = Join-Path $sdkRoot 'bin'
+    $requiredPackageFiles = @(
+      (Join-Path $sdkBin 'pointcloud_ad.dll'),
+      (Join-Path $sdkBin 'pcad.exe'),
+      (Join-Path $sdkRoot 'lib\pointcloud_ad.lib'),
+      (Join-Path $sdkRoot 'include\pointcloud_ad\inspection_pipeline.hpp'),
+      (Join-Path $sdkRoot 'lib\cmake\PointCloudAD\PointCloudADConfig.cmake'),
+      (Join-Path $sdkRoot 'examples\sdk_consumer\CMakeLists.txt'),
+      (Join-Path $sdkRoot 'LICENSE'),
+      (Join-Path $sdkRoot 'THIRD_PARTY_NOTICES.md')
+    )
+    foreach ($requiredPackageFile in $requiredPackageFiles) {
+      if (-not (Test-Path -LiteralPath $requiredPackageFile -PathType Leaf)) {
+        throw "SDK package file is missing: $requiredPackageFile"
+      }
+    }
+
+    $installedCmakeFiles = Get-ChildItem -LiteralPath (Join-Path $sdkRoot 'lib\cmake') `
+      -Filter '*.cmake' -File -Recurse
+    $pathLeakPattern = [regex]::Escape($projectRoot) + '|vcpkg_installed'
+    if ($installedCmakeFiles | Select-String -Pattern $pathLeakPattern) {
+      throw 'Installed CMake package contains a build-tree or vcpkg path leak.'
+    }
+
+    & $cmake -S (Join-Path $sdkRoot 'examples\sdk_consumer') `
+      -B $packageConsumerDirectory -G Ninja `
+      -DCMAKE_BUILD_TYPE=Release `
+      "-DCMAKE_PREFIX_PATH=$sdkRoot"
+    if ($LASTEXITCODE -ne 0) {
+      throw 'Packaged SDK example configuration failed.'
+    }
+    & $cmake --build $packageConsumerDirectory
+    if ($LASTEXITCODE -ne 0) {
+      throw 'Packaged SDK example build failed.'
+    }
+
+    $originalPath = $env:Path
+    try {
+      $env:Path = "$sdkBin;$env:SystemRoot\System32;$env:SystemRoot"
+      & (Join-Path $sdkBin 'pcad.exe') --version
+      if ($LASTEXITCODE -ne 0) {
+        throw 'Packaged CLI failed with only the SDK and Windows system paths available.'
+      }
+      & (Join-Path $packageConsumerDirectory 'pointcloud_ad_sdk_consumer.exe')
+      if ($LASTEXITCODE -ne 0) {
+        throw 'Packaged SDK example failed with only the SDK and Windows system paths available.'
+      }
+    } finally {
+      $env:Path = $originalPath
+    }
+
+    $archiveHash = (Get-FileHash -LiteralPath $archives[0].FullName -Algorithm SHA256).Hash
+    $checksumPath = "$($archives[0].FullName).sha256"
+    "$archiveHash  $($archives[0].Name)" | Set-Content -LiteralPath $checksumPath -Encoding ascii
+    Write-Host "Verified SDK package: $($archives[0].FullName)"
+    Write-Host "SHA256: $archiveHash"
   }
 } finally {
   Pop-Location

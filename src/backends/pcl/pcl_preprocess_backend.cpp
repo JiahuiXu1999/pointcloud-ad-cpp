@@ -162,7 +162,14 @@ Result<std::vector<std::uint8_t>> detect_unorganized_boundaries(SurfaceView surf
         if (neighbor == static_cast<int>(cloud_index)) {
           continue;
         }
-        const auto neighbor_point = surface.points()[mapping.storage_indices[neighbor]];
+        if (neighbor < 0) {
+          continue;
+        }
+        const auto neighbor_index = static_cast<std::size_t>(neighbor);
+        if (neighbor_index >= mapping.storage_indices.size()) {
+          continue;
+        }
+        const auto neighbor_point = surface.points()[mapping.storage_indices[neighbor_index]];
         const Vec3f delta{neighbor_point.x - origin.x, neighbor_point.y - origin.y,
                           neighbor_point.z - origin.z};
         const double projected_x = dot(delta, u);

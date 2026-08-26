@@ -490,7 +490,7 @@ if(TARGET pcad)
   add_test(NAME pointcloud_ad.cli.version COMMAND pcad --version)
   set_tests_properties(
     pointcloud_ad.cli.version PROPERTIES PASS_REGULAR_EXPRESSION
-                                          "pcad 0\\.1\\.0-dev")
+                                          "pcad 0\\.1\\.0")
 
   add_executable(
     pointcloud_ad_cli_tests
