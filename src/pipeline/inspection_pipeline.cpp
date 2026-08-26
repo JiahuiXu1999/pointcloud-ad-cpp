@@ -369,7 +369,7 @@ to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
 } // namespace
 
 struct InspectionPipeline::Impl {
-  explicit Impl(ValidatedInspectionConfig config) : config(std::move(config)) {}
+  explicit Impl(ValidatedInspectionConfig validated_config) : config(std::move(validated_config)) {}
   ValidatedInspectionConfig config;
 };
 

@@ -22,6 +22,7 @@ if(POLICY CMP0144)
 endif()
 
 find_package(PCL CONFIG REQUIRED COMPONENTS common features io kdtree search)
+find_package(lz4 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
 option(POINTCLOUDAD_BUILD_CLI "Build the pcad command-line application" ON)
@@ -131,7 +132,7 @@ target_include_directories(
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(
   pointcloud_ad PRIVATE pcl_common pcl_features pcl_io pcl_kdtree pcl_search
-                         nlohmann_json::nlohmann_json)
+                         lz4::lz4 nlohmann_json::nlohmann_json)
 
 pointcloudad_set_warnings(pointcloud_ad ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(

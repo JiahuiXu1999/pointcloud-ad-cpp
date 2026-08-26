@@ -9,6 +9,7 @@
       "name": "pcl",
       "default-features": false
     },
+    "lz4",
     "nlohmann-json"
   ]
 }
