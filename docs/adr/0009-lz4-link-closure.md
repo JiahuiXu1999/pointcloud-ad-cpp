@@ -5,16 +5,18 @@
 
 ## Context
 
-PCL's I/O libraries use LZ4 and already bring the port into the pinned vcpkg dependency graph. On
-Linux, vcpkg builds PCL as static libraries, but the exported PCL target does not propagate every
-LZ4 symbol required when those objects are linked into the shared PointCloudAD library. This leaves
-unresolved `LZ4_*` references when an executable consumes `libpointcloud_ad.so`.
+PCL and FLANN use LZ4 and optionally OpenMP. LZ4 is already in the pinned vcpkg dependency graph,
+and OpenMP is supplied by the compiler toolchain. On Linux, vcpkg builds PCL as static libraries,
+but the exported PCL targets do not propagate the complete LZ4/OpenMP link interface. This leaves
+unresolved `LZ4_*`, `GOMP_*`, and `omp_*` references in the shared library or isolated backend test
+executables.
 
 ## Decision
 
-Declare `lz4` directly in the existing pinned vcpkg manifest and link its `lz4::lz4` imported target
-privately to `pointcloud_ad`. LZ4 remains a backend implementation dependency: no LZ4 header, type,
-or target appears in PointCloudAD's public headers or installed target interface.
+Declare `lz4` directly in the existing pinned vcpkg manifest. Provide one internal CMake interface
+target containing `lz4::lz4` and, when PCL found it, `OpenMP::OpenMP_CXX`. Link that closure privately
+to `pointcloud_ad`, the CLI, and isolated tests that compile PCL backend sources. Neither dependency
+appears in PointCloudAD's public headers or installed target interface.
 
 ## Consequences
 

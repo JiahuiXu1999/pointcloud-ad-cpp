@@ -25,6 +25,14 @@ find_package(PCL CONFIG REQUIRED COMPONENTS common features io kdtree search)
 find_package(lz4 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
+# vcpkg's static Linux PCL targets do not propagate FLANN's LZ4/OpenMP link closure. Keep the
+# workaround private and reuse it for the library and tests that compile PCL backend sources.
+add_library(pointcloudad_pcl_link_closure INTERFACE)
+target_link_libraries(pointcloudad_pcl_link_closure INTERFACE lz4::lz4)
+if(TARGET OpenMP::OpenMP_CXX)
+  target_link_libraries(pointcloudad_pcl_link_closure INTERFACE OpenMP::OpenMP_CXX)
+endif()
+
 option(POINTCLOUDAD_BUILD_CLI "Build the pcad command-line application" ON)
 option(POINTCLOUDAD_BUILD_TESTS "Build PointCloudAD tests" ${PROJECT_IS_TOP_LEVEL})
 option(POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
@@ -132,7 +140,7 @@ target_include_directories(
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(
   pointcloud_ad PRIVATE pcl_common pcl_features pcl_io pcl_kdtree pcl_search
-                         lz4::lz4 nlohmann_json::nlohmann_json)
+                         pointcloudad_pcl_link_closure nlohmann_json::nlohmann_json)
 
 pointcloudad_set_warnings(pointcloud_ad ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -158,7 +166,8 @@ if(POINTCLOUDAD_BUILD_CLI)
             ${CMAKE_CURRENT_SOURCE_DIR}/src/serialization)
   target_link_libraries(
     pcad
-    PRIVATE PointCloudAD::pointcloud_ad pcl_common pcl_io nlohmann_json::nlohmann_json)
+    PRIVATE PointCloudAD::pointcloud_ad pcl_common pcl_io pointcloudad_pcl_link_closure
+            nlohmann_json::nlohmann_json)
   pointcloudad_set_warnings(pcad ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
   pointcloudad_enable_sanitizers(
     pcad

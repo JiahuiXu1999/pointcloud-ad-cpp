@@ -184,7 +184,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/registration)
 target_link_libraries(
   pointcloud_ad_registration_icp_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_registration_icp_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -228,7 +228,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_deviation_field_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_deviation_field_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -253,7 +253,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_coverage_field_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_coverage_field_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -303,7 +303,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_defect_cluster_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_defect_cluster_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -332,7 +332,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_defect_region_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_defect_region_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -351,7 +351,8 @@ target_compile_features(pointcloud_ad_pcl_backend_tests PRIVATE cxx_std_20)
 target_include_directories(
   pointcloud_ad_pcl_backend_tests
   PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/backends/pcl)
-target_link_libraries(pointcloud_ad_pcl_backend_tests PRIVATE pcl_common)
+target_link_libraries(
+  pointcloud_ad_pcl_backend_tests PRIVATE pcl_common pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_pcl_backend_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -374,7 +375,8 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src/io
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
-target_link_libraries(pointcloud_ad_ply_adapter_tests PRIVATE pcl_common pcl_io)
+target_link_libraries(
+  pointcloud_ad_ply_adapter_tests PRIVATE pcl_common pcl_io pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_ply_adapter_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -397,7 +399,8 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src/io
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
-target_link_libraries(pointcloud_ad_pcd_adapter_tests PRIVATE pcl_common pcl_io)
+target_link_libraries(
+  pointcloud_ad_pcd_adapter_tests PRIVATE pcl_common pcl_io pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_pcd_adapter_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -458,7 +461,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_normal_boundary_tests
-  PRIVATE pcl_common pcl_features pcl_kdtree pcl_search)
+  PRIVATE pcl_common pcl_features pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
 pointcloudad_set_warnings(
   pointcloud_ad_normal_boundary_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -510,7 +513,7 @@ if(TARGET pcad)
       ${PROJECT_SOURCE_DIR}/src/serialization)
   target_link_libraries(
     pointcloud_ad_cli_tests
-    PRIVATE pcl_common pcl_io nlohmann_json::nlohmann_json)
+    PRIVATE pcl_common pcl_io pointcloudad_pcl_link_closure nlohmann_json::nlohmann_json)
   pointcloudad_set_warnings(
     pointcloud_ad_cli_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
   pointcloudad_enable_sanitizers(
