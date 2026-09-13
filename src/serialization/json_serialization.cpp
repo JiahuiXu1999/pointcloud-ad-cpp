@@ -181,6 +181,7 @@ constexpr std::string_view kSchemaVersion = "1.0";
   preprocess["boundary_radius_mm"] = optional_number(config.preprocess.boundary_radius_mm);
 
   json registration;
+  registration["method"] = registration_method_name(config.registration.method);
   registration["max_iterations"] = config.registration.max_iterations
                                        ? json(*config.registration.max_iterations)
                                        : json(nullptr);
@@ -223,6 +224,7 @@ constexpr std::string_view kSchemaVersion = "1.0";
       optional_number(config.detection.measurement_error_budget_mm);
 
   json execution;
+  execution["backend"] = compute_backend_name(config.execution.backend);
   execution["deterministic"] =
       config.execution.deterministic ? json(*config.execution.deterministic) : json(nullptr);
   execution["thread_count"] =
@@ -314,6 +316,17 @@ constexpr std::string_view kSchemaVersion = "1.0";
   config.preprocess.boundary_radius_mm = optional_double(preprocess, "boundary_radius_mm");
 
   const json registration = document.value("registration", json::object());
+  const auto method = registration.value("method", std::string("point_to_plane"));
+  if (method == "point_to_plane") {
+    config.registration.method = RegistrationMethod::point_to_plane;
+  } else if (method == "point_to_point") {
+    config.registration.method = RegistrationMethod::point_to_point;
+  } else if (method == "gicp") {
+    config.registration.method = RegistrationMethod::gicp;
+  } else {
+    return Result<InspectionConfig>::failure(
+        serialization_error(ErrorCode::invalid_input, "unknown registration.method"));
+  }
   config.registration.max_iterations = optional_uint(registration, "max_iterations");
   config.registration.max_correspondence_distance_mm =
       optional_double(registration, "max_correspondence_distance_mm");
@@ -350,6 +363,17 @@ constexpr std::string_view kSchemaVersion = "1.0";
       optional_double(detection, "measurement_error_budget_mm");
 
   const json execution = document.value("execution", json::object());
+  const auto backend = execution.value("backend", std::string("cpu"));
+  if (backend == "cpu") {
+    config.execution.backend = ComputeBackend::cpu;
+  } else if (backend == "gpu") {
+    config.execution.backend = ComputeBackend::gpu;
+  } else if (backend == "auto") {
+    config.execution.backend = ComputeBackend::automatic;
+  } else {
+    return Result<InspectionConfig>::failure(
+        serialization_error(ErrorCode::invalid_input, "unknown execution.backend"));
+  }
   config.execution.deterministic = optional_bool(execution, "deterministic");
   config.execution.thread_count = optional_uint(execution, "thread_count");
   config.execution.random_seed =
@@ -380,6 +404,15 @@ constexpr std::string_view kSchemaVersion = "1.0";
   registration["overlap_ratio"] = finite_number(result.registration.overlap_ratio);
   registration["inlier_rmse_mm"] = finite_number(result.registration.inlier_rmse_mm);
   registration["termination_reason"] = result.registration.termination_reason;
+  registration["method"] = registration_method_name(result.registration.method);
+  registration["requested_backend"] = compute_backend_name(result.registration.requested_backend);
+  registration["actual_backend"] = compute_backend_name(result.registration.actual_backend);
+  registration["execution_scope"] = result.registration.actual_backend == ComputeBackend::gpu
+                                        ? "gpu_correspondence_cpu_solve"
+                                        : "cpu";
+  registration["rmse_metric"] = result.registration.method == RegistrationMethod::point_to_plane
+                                    ? "point_to_plane_mm"
+                                    : "euclidean_mm";
 
   json coverage;
   coverage["valid_count"] = result.coverage.valid_count;

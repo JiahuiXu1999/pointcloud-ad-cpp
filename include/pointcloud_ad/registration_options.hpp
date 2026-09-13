@@ -1,0 +1,36 @@
+#pragma once
+
+#include <cstdint>
+#include <string_view>
+
+namespace pointcloud_ad {
+
+enum class RegistrationMethod : std::uint8_t { point_to_plane, point_to_point, gicp };
+enum class ComputeBackend : std::uint8_t { cpu, gpu, automatic };
+
+[[nodiscard]] constexpr std::string_view
+registration_method_name(RegistrationMethod method) noexcept {
+  switch (method) {
+  case RegistrationMethod::point_to_plane:
+    return "point_to_plane";
+  case RegistrationMethod::point_to_point:
+    return "point_to_point";
+  case RegistrationMethod::gicp:
+    return "gicp";
+  }
+  return "unknown";
+}
+
+[[nodiscard]] constexpr std::string_view compute_backend_name(ComputeBackend backend) noexcept {
+  switch (backend) {
+  case ComputeBackend::cpu:
+    return "cpu";
+  case ComputeBackend::gpu:
+    return "gpu";
+  case ComputeBackend::automatic:
+    return "auto";
+  }
+  return "unknown";
+}
+
+} // namespace pointcloud_ad

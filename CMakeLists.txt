@@ -89,6 +89,7 @@ target_sources(
     src/preprocess/normal_boundary.hpp
     src/preprocess/voxel_sampling.cpp
     src/preprocess/voxel_sampling.hpp
+    src/registration/registration_engine.cpp
     src/registration/registration_gate.cpp
     src/registration/registration_gate.hpp
     src/pipeline/inspection_pipeline.cpp
@@ -106,6 +107,8 @@ target_sources(
       include/pointcloud_ad/inspection_pipeline.hpp
       include/pointcloud_ad/inspection_result.hpp
       include/pointcloud_ad/normalization.hpp
+      include/pointcloud_ad/registration_engine.hpp
+      include/pointcloud_ad/registration_options.hpp
       include/pointcloud_ad/registration.hpp
       include/pointcloud_ad/result.hpp
       include/pointcloud_ad/status.hpp
@@ -141,6 +144,36 @@ target_include_directories(
 target_link_libraries(
   pointcloud_ad PRIVATE pcl_common pcl_features pcl_io pcl_kdtree pcl_search
                          pointcloudad_pcl_link_closure nlohmann_json::nlohmann_json)
+
+option(POINTCLOUDAD_ENABLE_CUDA "Enable CUDA registration correspondence search" OFF)
+if(POINTCLOUDAD_ENABLE_CUDA)
+  enable_language(CUDA)
+  find_package(CUDAToolkit 13.2 REQUIRED)
+  add_library(pointcloudad_cuda STATIC src/backends/cuda/cuda_correspondence.cu
+    src/backends/cuda/cuda_correspondence.hpp src/backends/cuda/spatial_index.hpp)
+  set_target_properties(pointcloudad_cuda PROPERTIES CUDA_STANDARD 20 CUDA_STANDARD_REQUIRED ON
+    POSITION_INDEPENDENT_CODE ON CUDA_RUNTIME_LIBRARY Static CUDA_VISIBILITY_PRESET hidden)
+  target_include_directories(pointcloudad_cuda PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_compile_options(pointcloudad_cuda PRIVATE $<$<COMPILE_LANGUAGE:CUDA>:--fmad=false>)
+  if(MSVC)
+    target_compile_options(pointcloudad_cuda PRIVATE -Xcompiler=/W4,/permissive-,/Zc:__cplusplus,/utf-8)
+    if(POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS)
+      target_compile_options(pointcloudad_cuda PRIVATE -Xcompiler=/WX)
+    endif()
+  else()
+    target_compile_options(pointcloudad_cuda PRIVATE -Xcompiler=-Wall,-Wextra,-Wconversion)
+    if(POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS)
+      target_compile_options(pointcloudad_cuda PRIVATE -Xcompiler=-Werror)
+    endif()
+  endif()
+  target_link_libraries(pointcloudad_cuda PRIVATE CUDA::cudart_static)
+  target_link_libraries(pointcloud_ad PRIVATE pointcloudad_cuda)
+  target_include_directories(pointcloud_ad PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/backends/cuda)
+  target_compile_definitions(pointcloud_ad PRIVATE POINTCLOUDAD_WITH_CUDA=1)
+  find_file(POINTCLOUDAD_CUDA_EULA NAMES EULA.txt
+    HINTS "${CUDAToolkit_LIBRARY_ROOT}" "${CUDAToolkit_BIN_DIR}/.." NO_DEFAULT_PATH REQUIRED)
+  install(FILES "${POINTCLOUDAD_CUDA_EULA}" DESTINATION "share/licenses/nvidia-cuda")
+endif()
 
 pointcloudad_set_warnings(pointcloud_ad ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -244,6 +277,14 @@ install(
   FILES LICENSE README.md SECURITY.md THIRD_PARTY_NOTICES.md
   DESTINATION ".")
 install(FILES docs/SDK.md DESTINATION "docs")
+install(FILES docs/architecture/HETEROGENEOUS_REGISTRATION.md DESTINATION "docs/architecture")
+install(FILES docs/adr/0010-heterogeneous-registration.md DESTINATION "docs/adr")
+install(
+  FILES docs/benchmarks/PCAD-HET-001.md docs/benchmarks/PCAD-HET-001.csv
+    docs/benchmarks/PCAD-HET-002.md docs/benchmarks/PCAD-HET-002-search.csv
+    docs/benchmarks/PCAD-HET-002-registration.csv docs/benchmarks/PCAD-HET-003.md
+    docs/benchmarks/PCAD-HET-003.csv
+  DESTINATION "docs/benchmarks")
 install(
   DIRECTORY examples/sdk_consumer
   DESTINATION "examples"

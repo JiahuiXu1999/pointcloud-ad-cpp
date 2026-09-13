@@ -60,6 +60,17 @@ thresholds are requested after M6; repository and maintainer identity are needed
 | PCAD-BENCH-001 | M8 | 100k/1M-point staged benchmarks | TEST-002 | Baseline report | Complete |
 | PCAD-REL-001 | M9 | Open-source files and release package | BENCH-001 | Release checklist | Complete |
 
+## M10: heterogeneous registration
+
+| ID | Milestone | Deliverable | Depends on | Required evidence | Status |
+|---|---:|---|---|---|---|
+| PCAD-HET-001 | M10 | Device-independent CPU/CUDA registration with point-to-point, point-to-plane and GICP objectives | REL-001 | CPU/CUDA algorithm matrix, configuration round-trip, Debug/Release and installed consumer | Complete |
+| PCAD-HET-002 | M10 | Exact indexed CUDA correspondence search shared by all registration objectives | HET-001 | Brute-force oracle, index invariants, GPU sanitizers, CPU/CUDA regression and scaling benchmark | Complete |
+| PCAD-HET-003 | M10 | Owned reusable reference registration contexts for CPU/CUDA and all three objectives | HET-002 | Snapshot lifetime, repeat/frame/capacity tests, installed SDK consumer and amortized benchmark | Complete |
+
+Future atomic tasks, to be defined before implementation: deterministic CPU parallel reduction,
+measured SIMD dispatch, and explicit inspection preprocessing/context reuse.
+
 ## Milestone themes
 
 - **M0 Engineering foundation:** build, test, install, CI, and AI contribution contract.
@@ -72,3 +83,5 @@ thresholds are requested after M6; repository and maintainer identity are needed
 - **M7 Product slice:** pipeline, schemas, artifacts, and full CLI.
 - **M8 Hardening:** acceptance matrix, determinism, sanitizers, and benchmarks.
 - **M9 Release:** public documentation, packaging, and v0.1 release.
+
+- **M10 Heterogeneous registration:** shared CPU/CUDA objectives, indexed GPU search and reusable reference contexts; CPU parallelism, SIMD and inspection caching remain follow-up work.

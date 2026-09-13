@@ -5,6 +5,7 @@
 #include <pointcloud_ad/geometry.hpp>
 #include <pointcloud_ad/inspection_pipeline.hpp>
 #include <pointcloud_ad/inspection_result.hpp>
+#include <pointcloud_ad/registration_engine.hpp>
 #include <pointcloud_ad/surface.hpp>
 #include <string_view>
 #include <utility>
@@ -151,6 +152,41 @@ int main() {
                          "a rejected registration must yield INDETERMINATE");
         passed &= expect(result.value().regions.empty(),
                          "a rejected registration must not run defect detection");
+      }
+    }
+  }
+
+  for (const auto method : {pointcloud_ad::RegistrationMethod::point_to_plane,
+                            pointcloud_ad::RegistrationMethod::point_to_point,
+                            pointcloud_ad::RegistrationMethod::gicp}) {
+    for (const auto backend :
+         {pointcloud_ad::ComputeBackend::cpu, pointcloud_ad::ComputeBackend::automatic,
+          pointcloud_ad::ComputeBackend::gpu}) {
+      auto config = make_config();
+      config.registration.method = method;
+      config.execution.backend = backend;
+      auto selected = InspectionPipeline::create(config);
+      passed &= expect(static_cast<bool>(selected), "dispatch configuration accepted");
+      if (!selected) {
+        continue;
+      }
+      const auto reference = make_patch(reference_frame, 6.0, 0.5, 0.0, 1.0);
+      const auto scan = make_patch(scan_frame, 6.0, 0.5, 0.0, 1.0);
+      auto result = selected.value().run(reference.surface.view(), scan.surface.view());
+      if (!pointcloud_ad::registration_backend_available(backend)) {
+        passed &= expect(!result, "pipeline does not silently replace unavailable GPU");
+        continue;
+      }
+      passed &= expect(result && result.value().verdict == Verdict::pass,
+                       "all methods/devices preserve identical-surface PASS");
+      if (result) {
+        passed &= expect(result.value().registration.method == method &&
+                             result.value().registration.requested_backend == backend &&
+                             result.value().registration.actual_backend ==
+                                 (backend == pointcloud_ad::ComputeBackend::automatic
+                                      ? pointcloud_ad::ComputeBackend::cpu
+                                      : backend),
+                         "pipeline dispatch provenance");
       }
     }
   }

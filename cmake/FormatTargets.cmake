@@ -11,6 +11,7 @@ function(pointcloudad_add_format_targets)
     "${PROJECT_SOURCE_DIR}/include/*.hpp"
     "${PROJECT_SOURCE_DIR}/benchmarks/*.cpp"
     "${PROJECT_SOURCE_DIR}/benchmarks/*.hpp"
+    "${PROJECT_SOURCE_DIR}/src/*.cu"
     "${PROJECT_SOURCE_DIR}/src/*.cpp"
     "${PROJECT_SOURCE_DIR}/src/*.hpp"
     "${PROJECT_SOURCE_DIR}/tests/*.cpp"

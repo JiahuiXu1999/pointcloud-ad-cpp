@@ -11,5 +11,13 @@
     },
     "lz4",
     "nlohmann-json"
-  ]
+  ],
+  "features": {
+    "cuda": {
+      "description": "Validate the optional system CUDA Toolkit for GPU registration (ADR-0010).",
+      "dependencies": [
+        "cuda"
+      ]
+    }
+  }
 }

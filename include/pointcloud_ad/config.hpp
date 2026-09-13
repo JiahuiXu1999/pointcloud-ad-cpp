@@ -5,6 +5,7 @@
 #include <exception>
 #include <optional>
 #include <pointcloud_ad/geometry.hpp>
+#include <pointcloud_ad/registration_options.hpp>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -32,6 +33,7 @@ struct RegistrationConfig final {
   std::optional<double> translation_epsilon_mm;
   std::optional<double> rotation_epsilon_rad;
   std::optional<double> residual_epsilon_mm;
+  RegistrationMethod method{RegistrationMethod::point_to_plane};
 };
 
 struct RegistrationGateConfig final {
@@ -63,6 +65,7 @@ struct ExecutionConfig final {
   std::optional<bool> deterministic;
   std::optional<std::uint32_t> thread_count;
   std::optional<std::uint64_t> random_seed;
+  ComputeBackend backend{ComputeBackend::cpu};
 };
 
 struct InspectionConfig final {
@@ -103,6 +106,7 @@ struct ValidatedRegistrationConfig final {
   double translation_epsilon_mm;
   double rotation_epsilon_rad;
   double residual_epsilon_mm;
+  RegistrationMethod method{RegistrationMethod::point_to_plane};
 };
 
 struct ValidatedRegistrationGateConfig final {
@@ -132,6 +136,7 @@ struct ValidatedExecutionConfig final {
   bool deterministic;
   std::uint32_t thread_count;
   std::uint64_t random_seed;
+  ComputeBackend backend{ComputeBackend::cpu};
 };
 
 class ValidatedInspectionConfig final {
@@ -429,6 +434,13 @@ validate_config_impl(InspectionConfig config) {
     return missing("execution.random_seed");
   }
 
+  if (registration_method_name(config.registration.method) == "unknown") {
+    return invalid("registration.method", "unsupported method");
+  }
+  if (compute_backend_name(config.execution.backend) == "unknown") {
+    return invalid("execution.backend", "unsupported backend");
+  }
+
   return Result<ValidatedInspectionConfig>::success(ValidatedInspectionConfig{
       std::move(config.schema_version), std::move(config.profile),
       ValidatedInputConfig{*config.input.reference_unit, *config.input.scan_unit,
@@ -440,7 +452,8 @@ validate_config_impl(InspectionConfig config) {
       ValidatedRegistrationConfig{
           *config.registration.max_iterations, *config.registration.max_correspondence_distance_mm,
           *config.registration.huber_delta_mm, *config.registration.translation_epsilon_mm,
-          *config.registration.rotation_epsilon_rad, *config.registration.residual_epsilon_mm},
+          *config.registration.rotation_epsilon_rad, *config.registration.residual_epsilon_mm,
+          config.registration.method},
       ValidatedRegistrationGateConfig{*config.registration_gate.min_overlap_ratio,
                                       *config.registration_gate.max_inlier_rmse_mm,
                                       *config.registration_gate.min_valid_pairs,
@@ -454,7 +467,7 @@ validate_config_impl(InspectionConfig config) {
           *config.detection.cluster_tolerance_mm, *config.detection.min_cluster_points,
           *config.detection.measurement_error_budget_mm},
       ValidatedExecutionConfig{*config.execution.deterministic, *config.execution.thread_count,
-                               *config.execution.random_seed}});
+                               *config.execution.random_seed, config.execution.backend}});
 }
 
 } // namespace detail

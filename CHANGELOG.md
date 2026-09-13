@@ -5,6 +5,16 @@ public API release is published.
 
 ## [Unreleased]
 
+- M10 backend-neutral registration API, optional CPU/GPU/auto selection and execution provenance.
+- Point-to-point ICP and covariance-based GICP alongside robust point-to-plane ICP, sharing
+  CPU double-precision optimization and either indexed CPU or indexed CUDA correspondence search.
+- Optional CUDA presets, pinned manifest feature, algorithm/device acceptance matrix and SDK docs.
+- Deterministic exact CUDA spatial indexing, exhaustive-oracle/degeneracy tests, GPU sanitizer
+  verification and million-point search benchmarks with separate preparation/query costs.
+
+- Move-only reference registration contexts reuse CPU/CUDA indexes and GICP reference covariance
+  across scans, with immutable snapshots, bounded capacity and installed-consumer coverage.
+
 ## [0.1.0] - 2026-08-26
 
 ### Added

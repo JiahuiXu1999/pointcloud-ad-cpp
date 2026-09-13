@@ -16,6 +16,14 @@ C++20 shared-library SDK and command-line application.
 > `validate-config`, and `version`, and a deterministic synthetic acceptance matrix covers
 > AC-001 through AC-012. Industrial M3 validation remains pending real sample clouds.
 
+M10 / PCAD-HET-001 through HET-003 add verified backend-neutral registration selection: robust
+point-to-plane ICP, point-to-point ICP and GICP on CPU or an optional CUDA correspondence backend.
+CUDA mode is hybrid, with deterministic indexed exact search and CPU preparation/optimization.
+An owning `RegistrationContext` reuses reference indexes and GICP covariance across scans.
+[Benchmarks](docs/benchmarks/PCAD-HET-002.md) separate index preparation and query costs. See
+[heterogeneous registration](docs/architecture/HETEROGENEOUS_REGISTRATION.md) and
+[SDK build/configuration](docs/SDK.md).
+
 ## Build contract
 
 The source of truth is CMake Presets. Generated Visual Studio solutions and local build

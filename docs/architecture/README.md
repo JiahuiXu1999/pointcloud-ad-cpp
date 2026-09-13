@@ -27,7 +27,8 @@ PCL is an implementation detail, not a domain model.
                   +------------+
 ```
 
-The diagram describes permitted dependency direction, not the current M1 file count.
+The diagram describes permitted dependency direction. The M10 registration device split is detailed in
+[heterogeneous registration](HETEROGENEOUS_REGISTRATION.md).
 
 ## Public boundary
 
@@ -118,5 +119,5 @@ link libraries use `lib/`, and installed consumers deploy the DLL next to their 
 - `RegistrationMetrics` owns the final scan-to-reference transform and quantitative fitness, inlier
   RMSE, and translation/rotation deltas measured relative to the initial transform so the later
   quality gate can bound movement without re-deriving it.
-- PCAD-REG-001 defines contracts only; ICP/correspondence search (REG-002) and the quality gate
-  (REG-003) consume these types and remain unimplemented.
+- M4 ICP and its quality gate are implemented. M10 adds an objective/device dispatcher and optional
+  CUDA correspondence search; see ADR-0010 and the heterogeneous registration design.

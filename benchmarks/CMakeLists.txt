@@ -20,3 +20,27 @@ pointcloudad_enable_sanitizers(
   ${POINTCLOUDAD_ENABLE_UBSAN})
 pointcloudad_enable_clang_tidy(
   pointcloud_ad_staged_benchmark ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+
+add_executable(pointcloud_ad_registration_benchmark EXCLUDE_FROM_ALL registration_benchmark.cpp)
+target_compile_features(pointcloud_ad_registration_benchmark PRIVATE cxx_std_20)
+target_link_libraries(pointcloud_ad_registration_benchmark PRIVATE PointCloudAD::pointcloud_ad)
+pointcloudad_set_warnings(pointcloud_ad_registration_benchmark ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+pointcloudad_enable_sanitizers(pointcloud_ad_registration_benchmark ${POINTCLOUDAD_ENABLE_ASAN} ${POINTCLOUDAD_ENABLE_UBSAN})
+pointcloudad_enable_clang_tidy(pointcloud_ad_registration_benchmark ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+
+if(POINTCLOUDAD_ENABLE_CUDA)
+  add_executable(pointcloud_ad_cuda_search_benchmark EXCLUDE_FROM_ALL cuda_search_benchmark.cpp)
+  target_compile_features(pointcloud_ad_cuda_search_benchmark PRIVATE cxx_std_20)
+  target_include_directories(pointcloud_ad_cuda_search_benchmark PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/backends/cuda)
+  target_link_libraries(pointcloud_ad_cuda_search_benchmark PRIVATE pointcloudad_cuda)
+  pointcloudad_set_warnings(pointcloud_ad_cuda_search_benchmark ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+  pointcloudad_enable_sanitizers(pointcloud_ad_cuda_search_benchmark ${POINTCLOUDAD_ENABLE_ASAN} ${POINTCLOUDAD_ENABLE_UBSAN})
+  pointcloudad_enable_clang_tidy(pointcloud_ad_cuda_search_benchmark ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+endif()
+
+add_executable(pointcloud_ad_context_benchmark EXCLUDE_FROM_ALL registration_context_benchmark.cpp)
+target_compile_features(pointcloud_ad_context_benchmark PRIVATE cxx_std_20)
+target_link_libraries(pointcloud_ad_context_benchmark PRIVATE PointCloudAD::pointcloud_ad)
+pointcloudad_set_warnings(pointcloud_ad_context_benchmark ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+pointcloudad_enable_sanitizers(pointcloud_ad_context_benchmark ${POINTCLOUDAD_ENABLE_ASAN} ${POINTCLOUDAD_ENABLE_UBSAN})
+pointcloudad_enable_clang_tidy(pointcloud_ad_context_benchmark ${POINTCLOUDAD_ENABLE_CLANG_TIDY})

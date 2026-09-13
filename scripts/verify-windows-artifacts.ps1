@@ -53,6 +53,15 @@ if ($exportText -notmatch 'create@InspectionPipeline@pointcloud_ad@@' -or
     $exportText -notmatch 'run@InspectionPipeline@pointcloud_ad@@') {
   throw "The public InspectionPipeline create/run symbols are not exported by '$buildDll'."
 }
+if ($exportText -notmatch 'register_surfaces@pointcloud_ad@@' -or
+    $exportText -notmatch 'registration_backend_available@pointcloud_ad@@') {
+  throw 'The public registration engine symbols are not exported.'
+}
+foreach ($contextSymbol in @('create@RegistrationContext@pointcloud_ad@@', 'align@RegistrationContext@pointcloud_ad@@', '??0RegistrationContext@pointcloud_ad@@', '??1RegistrationContext@pointcloud_ad@@', '??4RegistrationContext@pointcloud_ad@@')) {
+  if (-not $exportText.Contains($contextSymbol)) {
+    throw "The public RegistrationContext symbol '$contextSymbol' is not exported."
+  }
+}
 if ($exportText -match '@backends@|@comparison@|@detection@|@preprocess@|@registration@|@pcl_backend@') {
   throw "Internal backend or module symbols must not be exported by '$buildDll'."
 }
@@ -71,6 +80,8 @@ if ($InstallDirectory) {
     (Join-Path $InstallDirectory 'include\pointcloud_ad\inspection_result.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\normalization.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\registration.hpp'),
+    (Join-Path $InstallDirectory 'include\pointcloud_ad\registration_engine.hpp'),
+    (Join-Path $InstallDirectory 'include\pointcloud_ad\registration_options.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\result.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\status.hpp'),
     (Join-Path $InstallDirectory 'include\pointcloud_ad\surface.hpp'),

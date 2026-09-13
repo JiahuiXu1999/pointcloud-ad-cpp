@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [ValidateSet('windows-msvc-debug', 'windows-msvc-release')]
+  [ValidateSet('windows-msvc-debug', 'windows-msvc-release', 'windows-cuda-debug', 'windows-cuda-release')]
   [string]$Preset = 'windows-msvc-debug',
 
   [switch]$Fresh,
@@ -139,8 +139,8 @@ try {
     -Dumpbin $dumpbin
 
   if ($RunBenchmark) {
-    if ($Preset -ne 'windows-msvc-release') {
-      throw '-RunBenchmark requires the windows-msvc-release preset.'
+    if ($Preset -notin @('windows-msvc-release', 'windows-cuda-release')) {
+      throw '-RunBenchmark requires a Release preset.'
     }
     & $cmake --build --preset $Preset --target pointcloud_ad_staged_benchmark
     if ($LASTEXITCODE -ne 0) {
@@ -153,8 +153,8 @@ try {
   }
 
   if ($VerifyInstall) {
-    if ($Preset -ne 'windows-msvc-release') {
-      throw '-VerifyInstall requires the windows-msvc-release preset.'
+    if ($Preset -notin @('windows-msvc-release', 'windows-cuda-release')) {
+      throw '-VerifyInstall requires a Release preset.'
     }
 
     $installDirectory = Join-Path $projectRoot "out\install\$Preset"
@@ -199,8 +199,8 @@ try {
   }
 
   if ($VerifyPackage) {
-    if ($Preset -ne 'windows-msvc-release') {
-      throw '-VerifyPackage requires the windows-msvc-release preset.'
+    if ($Preset -notin @('windows-msvc-release', 'windows-cuda-release')) {
+      throw '-VerifyPackage requires a Release preset.'
     }
 
     $cpack = Join-Path ([IO.Path]::GetDirectoryName($cmake)) 'cpack.exe'

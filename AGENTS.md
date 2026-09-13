@@ -46,5 +46,5 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 
 ## Current milestone
 
-M0, M0.1/B00, and M1 through M9 are complete. The roadmap must be extended with a new atomic task
-before further implementation work begins.
+M0, M0.1/B00, M1 through M9, and M10 / PCAD-HET-001 through PCAD-HET-003 are complete.
+Extend the roadmap with a new atomic task before further implementation work.

@@ -4,7 +4,6 @@
 #include "defect_region.hpp"
 #include "deviation_field.hpp"
 #include "normal_boundary.hpp"
-#include "pcl_registration_backend.hpp"
 #include "registration_gate.hpp"
 
 #include <array>
@@ -16,6 +15,7 @@
 #include <optional>
 #include <pointcloud_ad/inspection_pipeline.hpp>
 #include <pointcloud_ad/normalization.hpp>
+#include <pointcloud_ad/registration_engine.hpp>
 #include <pointcloud_ad/version.hpp>
 #include <sstream>
 #include <string>
@@ -76,6 +76,7 @@ to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
   parameters.translation_epsilon_mm = config.translation_epsilon_mm;
   parameters.rotation_epsilon_rad = config.rotation_epsilon_rad;
   parameters.residual_epsilon_mm = config.residual_epsilon_mm;
+  parameters.method = config.method;
   return parameters;
 }
 
@@ -191,15 +192,20 @@ to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
                                               {}});
     }
     result.registration.initial_pose = *initial;
-    auto solved = backends::pcl_backend::align_point_to_plane(
-        reference_prepared->surface(), scan_prepared->surface(), *initial,
-        to_registration_parameters(config.registration()));
+    auto solved = register_surfaces(reference_prepared->surface(), scan_prepared->surface(),
+                                    *initial, to_registration_parameters(config.registration()),
+                                    config.execution().backend);
     if (!solved) {
       return Result<InspectionResult>::failure(std::move(solved).error());
     }
     metrics.emplace(std::move(solved).value());
   }
 
+  result.registration.method = config.registration().method;
+  result.registration.requested_backend = config.execution().backend;
+  result.registration.actual_backend = config.execution().backend == ComputeBackend::automatic
+                                           ? ComputeBackend::cpu
+                                           : config.execution().backend;
   result.registration.final_pose = metrics->final_transform();
   result.registration.iterations = metrics->iterations();
   result.registration.converged = metrics->convergence() == RegistrationConvergence::converged;

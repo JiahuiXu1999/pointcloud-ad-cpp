@@ -4,6 +4,7 @@
 #include <map>
 #include <optional>
 #include <pointcloud_ad/geometry.hpp>
+#include <pointcloud_ad/registration_options.hpp>
 #include <pointcloud_ad/status.hpp>
 #include <string>
 #include <vector>
@@ -30,6 +31,9 @@ struct RegistrationResult final {
   double overlap_ratio{};
   double inlier_rmse_mm{};
   std::string termination_reason;
+  RegistrationMethod method{RegistrationMethod::point_to_plane};
+  ComputeBackend requested_backend{ComputeBackend::cpu};
+  ComputeBackend actual_backend{ComputeBackend::cpu};
 };
 
 // Aggregate coverage of the reference surface by the aligned scan.

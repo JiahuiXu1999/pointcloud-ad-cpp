@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdint>
 #include <pointcloud_ad/geometry.hpp>
+#include <pointcloud_ad/registration_options.hpp>
 #include <pointcloud_ad/result.hpp>
 #include <pointcloud_ad/surface.hpp>
 #include <string>
@@ -36,6 +37,9 @@ struct RegistrationParameters final {
   double translation_epsilon_mm{};
   double rotation_epsilon_rad{};
   double residual_epsilon_mm{};
+  RegistrationMethod method{RegistrationMethod::point_to_plane};
+  std::uint32_t covariance_neighbors{12U};
+  double covariance_epsilon{0.001}; // Dimensionless GICP covariance regularization.
 
   friend bool operator==(const RegistrationParameters&, const RegistrationParameters&) = default;
 };
@@ -44,6 +48,16 @@ namespace detail {
 
 [[nodiscard]] inline Result<RegistrationParameters>
 validate_registration_parameters(RegistrationParameters parameters) {
+  if (registration_method_name(parameters.method) == "unknown") {
+    return Result<RegistrationParameters>::failure(
+        registration_error("parameters.method", "unsupported method"));
+  }
+  if (parameters.covariance_neighbors < 3U || parameters.covariance_neighbors > 1024U ||
+      !std::isfinite(parameters.covariance_epsilon) || parameters.covariance_epsilon <= 0.0 ||
+      parameters.covariance_epsilon > 1.0) {
+    return Result<RegistrationParameters>::failure(registration_error(
+        "parameters.covariance", "neighbors must be in [3, 1024] and epsilon in (0, 1]"));
+  }
   if (parameters.max_iterations == 0U || parameters.max_iterations > 1000U) {
     return Result<RegistrationParameters>::failure(
         registration_error("parameters.max_iterations", "must be in [1, 1000]"));

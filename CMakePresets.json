@@ -98,6 +98,24 @@
         "POINTCLOUDAD_ENABLE_UBSAN": true,
         "POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS": true
       }
+    },
+    {
+      "name": "windows-cuda-debug",
+      "inherits": "windows-msvc-debug",
+      "cacheVariables": {
+        "POINTCLOUDAD_ENABLE_CUDA": true,
+        "CMAKE_CUDA_ARCHITECTURES": "native",
+        "VCPKG_MANIFEST_FEATURES": "cuda"
+      }
+    },
+    {
+      "name": "windows-cuda-release",
+      "inherits": "windows-msvc-release",
+      "cacheVariables": {
+        "POINTCLOUDAD_ENABLE_CUDA": true,
+        "CMAKE_CUDA_ARCHITECTURES": "native",
+        "VCPKG_MANIFEST_FEATURES": "cuda"
+      }
     }
   ],
   "buildPresets": [
@@ -125,79 +143,208 @@
       "name": "linux-clang-asan",
       "configurePreset": "linux-clang-asan",
       "jobs": 0
+    },
+    {
+      "name": "windows-cuda-debug",
+      "configurePreset": "windows-cuda-debug",
+      "jobs": 4
+    },
+    {
+      "name": "windows-cuda-release",
+      "configurePreset": "windows-cuda-release",
+      "jobs": 4
     }
   ],
   "testPresets": [
     {
       "name": "windows-msvc-debug",
       "configurePreset": "windows-msvc-debug",
-      "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
     },
     {
       "name": "windows-msvc-release",
       "configurePreset": "windows-msvc-release",
-      "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
     },
     {
       "name": "linux-gcc-debug",
       "configurePreset": "linux-gcc-debug",
-      "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
     },
     {
       "name": "linux-gcc-release",
       "configurePreset": "linux-gcc-release",
-      "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
     },
     {
       "name": "linux-clang-asan",
       "configurePreset": "linux-clang-asan",
-      "output": { "outputOnFailure": true },
-      "execution": { "noTestsAction": "error" }
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "windows-cuda-debug",
+      "configurePreset": "windows-cuda-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "windows-cuda-release",
+      "configurePreset": "windows-cuda-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "error"
+      }
     }
   ],
   "workflowPresets": [
     {
       "name": "windows-msvc-debug",
       "steps": [
-        { "type": "configure", "name": "windows-msvc-debug" },
-        { "type": "build", "name": "windows-msvc-debug" },
-        { "type": "test", "name": "windows-msvc-debug" }
+        {
+          "type": "configure",
+          "name": "windows-msvc-debug"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc-debug"
+        },
+        {
+          "type": "test",
+          "name": "windows-msvc-debug"
+        }
       ]
     },
     {
       "name": "windows-msvc-release",
       "steps": [
-        { "type": "configure", "name": "windows-msvc-release" },
-        { "type": "build", "name": "windows-msvc-release" },
-        { "type": "test", "name": "windows-msvc-release" }
+        {
+          "type": "configure",
+          "name": "windows-msvc-release"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc-release"
+        },
+        {
+          "type": "test",
+          "name": "windows-msvc-release"
+        }
       ]
     },
     {
       "name": "linux-gcc-debug",
       "steps": [
-        { "type": "configure", "name": "linux-gcc-debug" },
-        { "type": "build", "name": "linux-gcc-debug" },
-        { "type": "test", "name": "linux-gcc-debug" }
+        {
+          "type": "configure",
+          "name": "linux-gcc-debug"
+        },
+        {
+          "type": "build",
+          "name": "linux-gcc-debug"
+        },
+        {
+          "type": "test",
+          "name": "linux-gcc-debug"
+        }
       ]
     },
     {
       "name": "linux-gcc-release",
       "steps": [
-        { "type": "configure", "name": "linux-gcc-release" },
-        { "type": "build", "name": "linux-gcc-release" },
-        { "type": "test", "name": "linux-gcc-release" }
+        {
+          "type": "configure",
+          "name": "linux-gcc-release"
+        },
+        {
+          "type": "build",
+          "name": "linux-gcc-release"
+        },
+        {
+          "type": "test",
+          "name": "linux-gcc-release"
+        }
       ]
     },
     {
       "name": "linux-clang-asan",
       "steps": [
-        { "type": "configure", "name": "linux-clang-asan" },
-        { "type": "build", "name": "linux-clang-asan" },
-        { "type": "test", "name": "linux-clang-asan" }
+        {
+          "type": "configure",
+          "name": "linux-clang-asan"
+        },
+        {
+          "type": "build",
+          "name": "linux-clang-asan"
+        },
+        {
+          "type": "test",
+          "name": "linux-clang-asan"
+        }
+      ]
+    },
+    {
+      "name": "windows-cuda-debug",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-cuda-debug"
+        },
+        {
+          "type": "build",
+          "name": "windows-cuda-debug"
+        },
+        {
+          "type": "test",
+          "name": "windows-cuda-debug"
+        }
+      ]
+    },
+    {
+      "name": "windows-cuda-release",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-cuda-release"
+        },
+        {
+          "type": "build",
+          "name": "windows-cuda-release"
+        },
+        {
+          "type": "test",
+          "name": "windows-cuda-release"
+        }
       ]
     }
   ]

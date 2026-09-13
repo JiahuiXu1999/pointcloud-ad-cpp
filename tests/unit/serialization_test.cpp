@@ -127,5 +127,63 @@ int main() {
     }
   }
 
+  {
+    auto config = make_config();
+    config.registration.method = pointcloud_ad::RegistrationMethod::gicp;
+    config.execution.backend = pointcloud_ad::ComputeBackend::gpu;
+    auto encoded = serialize_config(config);
+    passed &= expect(static_cast<bool>(encoded), "heterogeneous configuration serializes");
+    if (encoded) {
+      auto parsed = parse_config(encoded.value());
+      passed &= expect(
+          parsed && parsed.value().registration.method == pointcloud_ad::RegistrationMethod::gicp &&
+              parsed.value().execution.backend == pointcloud_ad::ComputeBackend::gpu,
+          "method and backend round-trip");
+      if (parsed) {
+        auto validated = pointcloud_ad::validate_config(parsed.value());
+        passed &=
+            expect(validated &&
+                       validated.value().registration().method ==
+                           pointcloud_ad::RegistrationMethod::gicp &&
+                       validated.value().execution().backend == pointcloud_ad::ComputeBackend::gpu,
+                   "validated configuration preserves dispatch policy");
+      }
+      auto document = nlohmann::json::parse(encoded.value());
+      document["registration"].erase("method");
+      document["execution"].erase("backend");
+      auto legacy = parse_config(document.dump());
+      passed &= expect(legacy &&
+                           legacy.value().registration.method ==
+                               pointcloud_ad::RegistrationMethod::point_to_plane &&
+                           legacy.value().execution.backend == pointcloud_ad::ComputeBackend::cpu,
+                       "legacy dispatch defaults");
+      document["registration"]["method"] = "unknown";
+      passed &= expect(!parse_config(document.dump()), "unknown method rejected");
+      document["registration"]["method"] = "point_to_point";
+      document["execution"]["backend"] = "unknown";
+      passed &= expect(!parse_config(document.dump()), "unknown backend rejected");
+    }
+    config.registration.method = static_cast<pointcloud_ad::RegistrationMethod>(255);
+    passed &= expect(!pointcloud_ad::validate_config(config), "invalid method enumerator rejected");
+    config.registration.method = pointcloud_ad::RegistrationMethod::gicp;
+    config.execution.backend = static_cast<pointcloud_ad::ComputeBackend>(255);
+    passed &=
+        expect(!pointcloud_ad::validate_config(config), "invalid backend enumerator rejected");
+    InspectionResult result;
+    result.registration.method = pointcloud_ad::RegistrationMethod::gicp;
+    result.registration.requested_backend = pointcloud_ad::ComputeBackend::gpu;
+    result.registration.actual_backend = pointcloud_ad::ComputeBackend::gpu;
+    auto report = serialize_result(result);
+    passed &= expect(static_cast<bool>(report), "GPU report serializes");
+    if (report) {
+      const auto document = nlohmann::json::parse(report.value());
+      passed &= expect(document["registration"]["actual_backend"] == "gpu" &&
+                           document["registration"]["execution_scope"] ==
+                               "gpu_correspondence_cpu_solve" &&
+                           document["registration"]["rmse_metric"] == "euclidean_mm",
+                       "hybrid scope and RMSE explicit");
+    }
+  }
+
   return passed ? 0 : 1;
 }

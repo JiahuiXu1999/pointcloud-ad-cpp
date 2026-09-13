@@ -1,7 +1,13 @@
 #include "pcl_registration_backend.hpp"
 
 #include <Eigen/Core>
+#include <Eigen/Eigenvalues>
 #include <Eigen/LU>
+#include <memory>
+#include <stdexcept>
+#ifdef POINTCLOUDAD_WITH_CUDA
+#include "cuda_correspondence.hpp"
+#endif
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -160,7 +166,7 @@ using Mat4 = std::array<double, 16>;
 [[nodiscard]] Error backend_error(std::string reason, ErrorCode code) {
   return Error{code,
                PipelineStage::registration,
-               "PCL point-to-plane registration failed",
+               "registration backend failed",
                {{"reason", std::move(reason)}}};
 }
 
@@ -212,192 +218,368 @@ struct ValidatedCloud final {
 
 } // namespace
 
-Result<RegistrationMetrics> align_point_to_plane(SurfaceView reference, SurfaceView scan,
-                                                 const RigidTransform& initial_transform,
-                                                 RegistrationParameters parameters) noexcept {
-  try {
-    if (reference.normals().empty()) {
-      return Result<RegistrationMetrics>::failure(backend_error(
-          "reference normals are required for point-to-plane ICP", ErrorCode::invalid_input));
+namespace {
+
+using Covariance = Eigen::Matrix3d;
+
+[[nodiscard]] std::vector<Covariance> estimate_covariances(const ValidatedCloud& cloud,
+                                                           RegistrationParameters parameters) {
+  if (cloud.points.size() < parameters.covariance_neighbors) {
+    throw std::invalid_argument(
+        "GICP requires at least covariance_neighbors valid points per cloud");
+  }
+  auto points = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
+  for (const auto point : cloud.points) {
+    points->emplace_back(static_cast<float>(point.x), static_cast<float>(point.y),
+                         static_cast<float>(point.z));
+  }
+  pcl::KdTreeFLANN<pcl::PointXYZ> tree;
+  tree.setInputCloud(points);
+  std::vector<Covariance> result;
+  result.reserve(cloud.points.size());
+  std::vector<int> indices(parameters.covariance_neighbors);
+  std::vector<float> distances(parameters.covariance_neighbors);
+  for (const auto& point : *points) {
+    if (tree.nearestKSearch(point, static_cast<int>(parameters.covariance_neighbors), indices,
+                            distances) < static_cast<int>(parameters.covariance_neighbors)) {
+      throw std::invalid_argument("GICP covariance neighborhood has insufficient support");
     }
-    const auto reference_cloud = extract_valid(reference);
-    const auto scan_cloud = extract_valid(scan);
-    if (reference_cloud.points.empty() || scan_cloud.points.empty()) {
-      return Result<RegistrationMetrics>::failure(
-          backend_error("registration requires at least one valid point on each surface",
-                        ErrorCode::invalid_input));
+    std::sort(indices.begin(), indices.end());
+    Eigen::Vector3d mean = Eigen::Vector3d::Zero();
+    for (int index : indices) {
+      const auto p = cloud.points[static_cast<std::size_t>(index)];
+      mean += Eigen::Vector3d(p.x, p.y, p.z);
     }
-    const bool scan_has_normals = !scan.normals().empty();
-
-    auto reference_pcl = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
-    reference_pcl->points.reserve(reference_cloud.points.size());
-    for (const V3 point : reference_cloud.points) {
-      reference_pcl->points.emplace_back(static_cast<float>(point.x), static_cast<float>(point.y),
-                                         static_cast<float>(point.z));
+    mean /= static_cast<double>(indices.size());
+    Covariance covariance = Covariance::Zero();
+    for (int index : indices) {
+      const auto p = cloud.points[static_cast<std::size_t>(index)];
+      const Eigen::Vector3d delta = Eigen::Vector3d(p.x, p.y, p.z) - mean;
+      covariance += delta * delta.transpose();
     }
-    reference_pcl->width = static_cast<std::uint32_t>(reference_pcl->points.size());
-    reference_pcl->height = 1U;
-    reference_pcl->is_dense = true;
+    Eigen::SelfAdjointEigenSolver<Covariance> eigen(covariance);
+    if (eigen.info() != Eigen::Success || !eigen.eigenvalues().allFinite() ||
+        eigen.eigenvalues()(1) <= 1.0e-12) {
+      throw std::invalid_argument("GICP covariance neighborhood is collinear or coincident");
+    }
+    result.push_back(eigen.eigenvectors() *
+                     Eigen::Vector3d(parameters.covariance_epsilon, 1.0, 1.0).asDiagonal() *
+                     eigen.eigenvectors().transpose());
+  }
+  return result;
+}
 
-    pcl::KdTreeFLANN<pcl::PointXYZ> tree;
-    tree.setInputCloud(reference_pcl);
-
-    const auto& initial = initial_transform.matrix();
-    Mat4 current = initial;
-    const double max_correspondence_distance = parameters.max_correspondence_distance_mm;
-    const double huber_delta = parameters.huber_delta_mm;
-    const double rotation_epsilon = parameters.rotation_epsilon_rad;
-    const double translation_epsilon = parameters.translation_epsilon_mm;
-    const double residual_epsilon = parameters.residual_epsilon_mm;
-
-    std::uint32_t completed_iterations = 0U;
-    bool converged = false;
-    bool degenerate = false;
-    double previous_mean_residual = std::numeric_limits<double>::infinity();
-
-    pcl::PointXYZ query;
-    std::vector<int> neighbor_indices(1);
-    std::vector<float> squared_distances(1);
-    Eigen::Matrix<double, 6, 6> normal_matrix;
-    Eigen::Matrix<double, 6, 1> gradient;
-
-    for (std::uint32_t iteration = 0; iteration < parameters.max_iterations; ++iteration) {
-      normal_matrix.setZero();
-      gradient.setZero();
-      double residual_sum = 0.0;
-      std::uint64_t correspondence_count = 0U;
-
-      for (std::size_t scan_index = 0; scan_index < scan_cloud.points.size(); ++scan_index) {
-        const V3 transformed = apply_point(current, scan_cloud.points[scan_index]);
-        query.x = static_cast<float>(transformed.x);
-        query.y = static_cast<float>(transformed.y);
-        query.z = static_cast<float>(transformed.z);
-        if (tree.nearestKSearch(query, 1, neighbor_indices, squared_distances) == 0) {
-          continue;
-        }
-        const std::size_t reference_index = static_cast<std::size_t>(neighbor_indices[0]);
-        const double distance = std::sqrt(static_cast<double>(squared_distances[0]));
-        if (distance > max_correspondence_distance) {
-          continue;
-        }
-        const V3 reference_normal = reference_cloud.normals[reference_index];
-        if (scan_has_normals) {
-          const V3 transformed_normal = apply_direction(current, scan_cloud.normals[scan_index]);
-          if (dot(transformed_normal, reference_normal) < 0.0) {
-            continue; // Reject back-facing correspondences.
-          }
-        }
-        const V3 difference = transformed - reference_cloud.points[reference_index];
-        const double residual = dot(reference_normal, difference);
-        const double absolute_residual = std::abs(residual);
-        const double weight =
-            absolute_residual <= huber_delta ? 1.0 : huber_delta / absolute_residual;
-        const V3 lever = cross(transformed, reference_normal);
-        Eigen::Matrix<double, 1, 6> jacobian;
-        jacobian << lever.x, lever.y, lever.z, reference_normal.x, reference_normal.y,
-            reference_normal.z;
-        normal_matrix += weight * jacobian.transpose() * jacobian;
-        gradient += weight * (-residual) * jacobian.transpose();
-        residual_sum += absolute_residual;
-        ++correspondence_count;
+class Search final {
+public:
+  Search(const ValidatedCloud& reference, std::size_t query_count, ComputeBackend backend)
+      : backend_(backend), points_(std::make_shared<pcl::PointCloud<pcl::PointXYZ>>()) {
+    for (const auto p : reference.points) {
+      points_->emplace_back(static_cast<float>(p.x), static_cast<float>(p.y),
+                            static_cast<float>(p.z));
+    }
+    if (backend == ComputeBackend::cpu) {
+      tree_.setInputCloud(points_);
+    } else {
+#ifdef POINTCLOUDAD_WITH_CUDA
+      std::vector<Vec3f> packed;
+      packed.reserve(reference.points.size());
+      for (const auto& p : *points_) {
+        packed.push_back({p.x, p.y, p.z});
       }
+      gpu_ = std::make_unique<cuda_backend::CorrespondenceSearch>(packed, query_count);
+#else
+      (void)query_count;
+      throw std::invalid_argument("GPU support is not compiled into this binary");
+#endif
+    }
+  }
 
-      const double mean_residual = correspondence_count == 0U
-                                       ? 0.0
-                                       : residual_sum / static_cast<double>(correspondence_count);
-      if (iteration > 0U && correspondence_count > 0U) {
+  [[nodiscard]] std::vector<std::int32_t> query(const std::vector<V3>& transformed, double bound) {
+    std::vector<Vec3f> packed;
+    packed.reserve(transformed.size());
+    for (const auto p : transformed) {
+      const Vec3f q{static_cast<float>(p.x), static_cast<float>(p.y), static_cast<float>(p.z)};
+      if (!std::isfinite(q.x) || !std::isfinite(q.y) || !std::isfinite(q.z)) {
+        throw std::invalid_argument("transformed coordinate exceeds search precision range");
+      }
+      packed.push_back(q);
+    }
+    if (backend_ == ComputeBackend::gpu) {
+#ifdef POINTCLOUDAD_WITH_CUDA
+      return gpu_->query(packed, bound);
+#else
+      throw std::invalid_argument("GPU support is not compiled into this binary");
+#endif
+    }
+    std::vector<std::int32_t> result(packed.size(), -1);
+    std::vector<int> indices(1);
+    std::vector<float> distances(1);
+    std::vector<int> ties;
+    std::vector<float> tie_distances;
+    for (std::size_t i = 0; i < packed.size(); ++i) {
+      const pcl::PointXYZ q(packed[i].x, packed[i].y, packed[i].z);
+      if (tree_.nearestKSearch(q, 1, indices, distances) == 0) {
+        continue;
+      }
+      // Recheck near-equal float tree candidates in double, with the same stable tie rule as CUDA.
+      const double radius = std::sqrt(static_cast<double>(distances[0])) * (1.0 + 1.0e-6) + 1.0e-6;
+      tree_.radiusSearch(q, radius, ties, tie_distances);
+      double best = bound * bound;
+      for (int candidate : ties) {
+        const auto& p = (*points_)[static_cast<std::size_t>(candidate)];
+        const double dx = static_cast<double>(q.x) - p.x;
+        const double dy = static_cast<double>(q.y) - p.y;
+        const double dz = static_cast<double>(q.z) - p.z;
+        const double d = dx * dx + dy * dy + dz * dz;
+        if (d < best || (d == best && (result[i] < 0 || candidate < result[i]))) {
+          best = d;
+          result[i] = candidate;
+        }
+      }
+    }
+    return result;
+  }
+
+private:
+  ComputeBackend backend_;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr points_;
+  pcl::KdTreeFLANN<pcl::PointXYZ> tree_;
+#ifdef POINTCLOUDAD_WITH_CUDA
+  std::unique_ptr<cuda_backend::CorrespondenceSearch> gpu_;
+#endif
+};
+
+[[nodiscard]] std::vector<V3> transform_points(const ValidatedCloud& cloud, const Mat4& transform) {
+  std::vector<V3> points;
+  points.reserve(cloud.points.size());
+  for (const auto p : cloud.points) {
+    points.push_back(apply_point(transform, p));
+  }
+  return points;
+}
+
+} // namespace
+
+namespace {
+class Prepared final : public PreparedRegistration {
+public:
+  Prepared(SurfaceView reference, RegistrationParameters parameters, std::size_t max_scan_points,
+           ComputeBackend backend)
+      : parameters_(parameters), reference_cloud_(extract_valid(reference)),
+        search_(checked_reference(parameters), max_scan_points, backend) {
+    if (parameters.method == RegistrationMethod::gicp) {
+      reference_covariances_ = estimate_covariances(reference_cloud_, parameters);
+    }
+  }
+  Result<RegistrationMetrics> align(SurfaceView scan,
+                                    const RigidTransform& initial_transform) noexcept override {
+    try {
+      const auto parameters = parameters_;
+      const bool plane = parameters.method == RegistrationMethod::point_to_plane;
+      const bool gicp = parameters.method == RegistrationMethod::gicp;
+      const auto& reference_cloud = reference_cloud_;
+      const auto& reference_covariances = reference_covariances_;
+      auto& search = search_;
+      const auto scan_cloud = extract_valid(scan);
+      if (scan_cloud.points.empty()) {
+        throw std::invalid_argument("registration requires valid scan points");
+      }
+      const auto scan_covariances =
+          gicp ? estimate_covariances(scan_cloud, parameters) : std::vector<Covariance>{};
+      const bool reject_back_facing =
+          !reference_cloud.normals.empty() && !scan_cloud.normals.empty();
+      const auto accepted = [&](std::size_t source, std::size_t target, const Mat4& pose) {
+        return !reject_back_facing || dot(apply_direction(pose, scan_cloud.normals[source]),
+                                          reference_cloud.normals[target]) >= 0.0;
+      };
+      const auto& initial = initial_transform.matrix();
+      Mat4 current = initial;
+      std::uint32_t completed_iterations = 0U;
+      bool converged = false;
+      bool degenerate = false;
+      double previous_mean_residual = std::numeric_limits<double>::infinity();
+      for (std::uint32_t iteration = 0; iteration < parameters.max_iterations; ++iteration) {
+        Eigen::Matrix<double, 6, 6> normal_matrix = Eigen::Matrix<double, 6, 6>::Zero();
+        Eigen::Matrix<double, 6, 1> gradient = Eigen::Matrix<double, 6, 1>::Zero();
+        double residual_sum = 0.0;
+        std::uint64_t correspondence_count = 0U;
+        const auto transformed = transform_points(scan_cloud, current);
+        const auto neighbors = search.query(transformed, parameters.max_correspondence_distance_mm);
+        Covariance rotation;
+        rotation << current[0], current[1], current[2], current[4], current[5], current[6],
+            current[8], current[9], current[10];
+        for (std::size_t i = 0; i < transformed.size(); ++i) {
+          if (neighbors[i] < 0) {
+            continue;
+          }
+          const auto j = static_cast<std::size_t>(neighbors[i]);
+          if (!accepted(i, j, current)) {
+            continue;
+          }
+          const V3 difference = transformed[i] - reference_cloud.points[j];
+          const double residual =
+              plane ? dot(reference_cloud.normals[j], difference) : norm(difference);
+          const double absolute_residual = std::abs(residual);
+          const double weight = absolute_residual <= parameters.huber_delta_mm
+                                    ? 1.0
+                                    : parameters.huber_delta_mm / absolute_residual;
+          if (plane) {
+            const V3 normal = reference_cloud.normals[j];
+            const V3 lever = cross(transformed[i], normal);
+            Eigen::Matrix<double, 1, 6> jacobian;
+            jacobian << lever.x, lever.y, lever.z, normal.x, normal.y, normal.z;
+            normal_matrix += weight * jacobian.transpose() * jacobian;
+            gradient += weight * (-residual) * jacobian.transpose();
+          } else {
+            const auto p = transformed[i];
+            Eigen::Matrix<double, 3, 6> jacobian;
+            jacobian << 0.0, p.z, -p.y, 1.0, 0.0, 0.0, -p.z, 0.0, p.x, 0.0, 1.0, 0.0, p.y, -p.x,
+                0.0, 0.0, 0.0, 1.0;
+            Covariance information = Covariance::Identity();
+            if (gicp) {
+              information =
+                  (reference_covariances[j] + rotation * scan_covariances[i] * rotation.transpose())
+                      .inverse();
+            }
+            const Eigen::Vector3d error(difference.x, difference.y, difference.z);
+            normal_matrix += weight * jacobian.transpose() * information * jacobian;
+            gradient -= weight * jacobian.transpose() * information * error;
+          }
+          residual_sum += absolute_residual;
+          ++correspondence_count;
+        }
+        if (correspondence_count < 6U) {
+          degenerate = true;
+          break;
+        }
+        const auto decomposition = normal_matrix.fullPivLu();
+        if (!plane && decomposition.rank() < 6) {
+          degenerate = true;
+          break;
+        }
+        const double mean_residual = residual_sum / static_cast<double>(correspondence_count);
         const double improvement = previous_mean_residual - mean_residual;
-        if (std::isfinite(improvement) && improvement >= 0.0 && improvement < residual_epsilon) {
+        if (iteration > 0U && std::isfinite(improvement) && improvement >= 0.0 &&
+            improvement < parameters.residual_epsilon_mm) {
+          converged = true;
+          break;
+        }
+        previous_mean_residual = mean_residual;
+        const Eigen::Matrix<double, 6, 1> twist = decomposition.solve(gradient);
+        if (!twist.allFinite()) {
+          degenerate = true;
+          break;
+        }
+        const V3 rotation_delta{twist(0), twist(1), twist(2)};
+        const V3 translation_delta{twist(3), twist(4), twist(5)};
+        current = multiply(delta_from_twist(rotation_delta, translation_delta), current);
+        ++completed_iterations;
+        if (norm(rotation_delta) < parameters.rotation_epsilon_rad &&
+            norm(translation_delta) < parameters.translation_epsilon_mm) {
           converged = true;
           break;
         }
       }
-      previous_mean_residual = mean_residual;
-
-      if (correspondence_count < 6U) {
-        degenerate = true;
-        break;
+      const Mat4 final_transform = orthonormalize(current);
+      auto validated = RigidTransform::create(final_transform, initial_transform.source_frame(),
+                                              initial_transform.target_frame(), 1.0e-6);
+      if (!validated) {
+        return Result<RegistrationMetrics>::failure(std::move(validated).error());
       }
-
-      Eigen::Matrix<double, 6, 1> twist = normal_matrix.fullPivLu().solve(gradient);
-      if (!twist.allFinite()) {
-        degenerate = true;
-        break;
-      }
-
-      const V3 rotation{twist(0), twist(1), twist(2)};
-      const V3 translation{twist(3), twist(4), twist(5)};
-      const Mat4 delta = delta_from_twist(rotation, translation);
-      current = multiply(delta, current);
-      ++completed_iterations;
-
-      if (norm(rotation) < rotation_epsilon && norm(translation) < translation_epsilon) {
-        converged = true;
-        break;
-      }
-    }
-
-    const Mat4 final_transform = orthonormalize(current);
-    auto validated = RigidTransform::create(final_transform, initial_transform.source_frame(),
-                                            initial_transform.target_frame(), 1.0e-6);
-    if (!validated) {
-      return Result<RegistrationMetrics>::failure(std::move(validated).error());
-    }
-
-    // Re-evaluate correspondences under the final transform so the reported metrics describe the
-    // accepted inlier set rather than the last incremental update.
-    double squared_residual_sum = 0.0;
-    std::uint64_t valid_pairs = 0U;
-    for (std::size_t scan_index = 0; scan_index < scan_cloud.points.size(); ++scan_index) {
-      const V3 transformed = apply_point(final_transform, scan_cloud.points[scan_index]);
-      query.x = static_cast<float>(transformed.x);
-      query.y = static_cast<float>(transformed.y);
-      query.z = static_cast<float>(transformed.z);
-      if (tree.nearestKSearch(query, 1, neighbor_indices, squared_distances) == 0) {
-        continue;
-      }
-      const std::size_t reference_index = static_cast<std::size_t>(neighbor_indices[0]);
-      if (std::sqrt(static_cast<double>(squared_distances[0])) > max_correspondence_distance) {
-        continue;
-      }
-      const V3 reference_normal = reference_cloud.normals[reference_index];
-      if (scan_has_normals) {
-        const V3 transformed_normal =
-            apply_direction(final_transform, scan_cloud.normals[scan_index]);
-        if (dot(transformed_normal, reference_normal) < 0.0) {
+      double squared_residual_sum = 0.0;
+      std::uint64_t valid_pairs = 0U;
+      const auto transformed = transform_points(scan_cloud, final_transform);
+      const auto neighbors = search.query(transformed, parameters.max_correspondence_distance_mm);
+      for (std::size_t i = 0; i < transformed.size(); ++i) {
+        if (neighbors[i] < 0) {
           continue;
         }
+        const auto j = static_cast<std::size_t>(neighbors[i]);
+        if (!accepted(i, j, final_transform)) {
+          continue;
+        }
+        const auto d = transformed[i] - reference_cloud.points[j];
+        // Preserve the original plane residual metric. Point-to-point and GICP report Euclidean
+        // inlier RMSE in mm, never the dimensionless/regularized optimization objective.
+        const double residual = plane ? dot(reference_cloud.normals[j], d) : norm(d);
+        squared_residual_sum += residual * residual;
+        ++valid_pairs;
       }
-      const double residual =
-          dot(reference_normal, transformed - reference_cloud.points[reference_index]);
-      squared_residual_sum += residual * residual;
-      ++valid_pairs;
+      const double fitness =
+          static_cast<double>(valid_pairs) / static_cast<double>(scan_cloud.points.size());
+      const double rmse = valid_pairs == 0U
+                              ? 0.0
+                              : std::sqrt(squared_residual_sum / static_cast<double>(valid_pairs));
+      const Mat4 relative = multiply(final_transform, inverse_rigid(initial));
+      const double translation_delta = norm({relative[3], relative[7], relative[11]});
+      const double cosine =
+          std::clamp((relative[0] + relative[5] + relative[10] - 1.0) / 2.0, -1.0, 1.0);
+      const auto convergence = degenerate ? RegistrationConvergence::degenerate_input
+                                          : (converged ? RegistrationConvergence::converged
+                                                       : RegistrationConvergence::not_converged);
+      return RegistrationMetrics::create(std::move(validated).value(), convergence,
+                                         completed_iterations, valid_pairs, fitness, rmse,
+                                         translation_delta, std::acos(cosine) * 180.0 / kPi);
+    } catch (const std::invalid_argument& exception) {
+      return Result<RegistrationMetrics>::failure(
+          backend_error(exception.what(), ErrorCode::invalid_input));
+    } catch (const std::exception& exception) {
+      return Result<RegistrationMetrics>::failure(
+          backend_error(exception.what(), ErrorCode::internal_error));
+    } catch (...) {
+      return Result<RegistrationMetrics>::failure(
+          backend_error("unknown backend exception", ErrorCode::internal_error));
     }
+  }
 
-    const double fitness =
-        scan_cloud.points.empty()
-            ? 0.0
-            : static_cast<double>(valid_pairs) / static_cast<double>(scan_cloud.points.size());
-    const double inlier_rmse =
-        valid_pairs == 0U ? 0.0
-                          : std::sqrt(squared_residual_sum / static_cast<double>(valid_pairs));
+private:
+  const ValidatedCloud& checked_reference(RegistrationParameters parameters) const {
+    if (reference_cloud_.points.empty()) {
+      throw std::invalid_argument("registration requires valid reference points");
+    }
+    if (parameters.method == RegistrationMethod::point_to_plane) {
+      if (reference_cloud_.normals.empty()) {
+        throw std::invalid_argument("reference normals are required for point-to-plane ICP");
+      }
+      for (const auto normal : reference_cloud_.normals) {
+        if (norm(normal) < 0.5) {
+          throw std::invalid_argument("point-to-plane requires nonzero reference normals");
+        }
+      }
+    }
+    return reference_cloud_;
+  }
+  RegistrationParameters parameters_;
+  ValidatedCloud reference_cloud_;
+  Search search_;
+  std::vector<Covariance> reference_covariances_;
+};
+} // namespace
 
-    const Mat4 initial_inverse = inverse_rigid(initial);
-    const Mat4 relative = multiply(final_transform, initial_inverse);
-    const V3 relative_translation{relative[3], relative[7], relative[11]};
-    const double translation_delta = norm(relative_translation);
-    const double rotation_trace = relative[0] + relative[5] + relative[10];
-    const double clamped_cosine = std::clamp((rotation_trace - 1.0) / 2.0, -1.0, 1.0);
-    const double rotation_delta = std::acos(clamped_cosine) * 180.0 / kPi;
+std::unique_ptr<PreparedRegistration> prepare_registration(SurfaceView reference,
+                                                           RegistrationParameters parameters,
+                                                           std::size_t max_scan_points,
+                                                           ComputeBackend backend) {
+  if (backend != ComputeBackend::cpu && backend != ComputeBackend::gpu) {
+    throw std::invalid_argument("unsupported registration backend");
+  }
+  return std::make_unique<Prepared>(reference, parameters, max_scan_points, backend);
+}
 
-    const RegistrationConvergence convergence =
-        degenerate ? RegistrationConvergence::degenerate_input
-                   : (converged ? RegistrationConvergence::converged
-                                : RegistrationConvergence::not_converged);
-
-    return RegistrationMetrics::create(std::move(validated).value(), convergence,
-                                       completed_iterations, valid_pairs, fitness, inlier_rmse,
-                                       translation_delta, rotation_delta);
+Result<RegistrationMetrics> align_registration(SurfaceView reference, SurfaceView scan,
+                                               const RigidTransform& initial_transform,
+                                               RegistrationParameters parameters,
+                                               ComputeBackend backend) noexcept {
+  try {
+    auto input = RegistrationInput::create(reference, scan, initial_transform, parameters);
+    if (!input) {
+      return Result<RegistrationMetrics>::failure(std::move(input).error());
+    }
+    auto prepared = prepare_registration(reference, parameters, scan.size(), backend);
+    return prepared->align(scan, initial_transform);
+  } catch (const std::invalid_argument& exception) {
+    return Result<RegistrationMetrics>::failure(
+        backend_error(exception.what(), ErrorCode::invalid_input));
   } catch (const std::exception& exception) {
     return Result<RegistrationMetrics>::failure(
         backend_error(exception.what(), ErrorCode::internal_error));
@@ -405,6 +587,13 @@ Result<RegistrationMetrics> align_point_to_plane(SurfaceView reference, SurfaceV
     return Result<RegistrationMetrics>::failure(
         backend_error("unknown backend exception", ErrorCode::internal_error));
   }
+}
+
+Result<RegistrationMetrics> align_point_to_plane(SurfaceView reference, SurfaceView scan,
+                                                 const RigidTransform& initial_transform,
+                                                 RegistrationParameters parameters) noexcept {
+  parameters.method = RegistrationMethod::point_to_plane;
+  return align_registration(reference, scan, initial_transform, parameters, ComputeBackend::cpu);
 }
 
 } // namespace pointcloud_ad::backends::pcl_backend
