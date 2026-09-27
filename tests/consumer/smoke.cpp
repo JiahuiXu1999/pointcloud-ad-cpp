@@ -2,6 +2,7 @@
 #include <optional>
 #include <pointcloud_ad/config.hpp>
 #include <pointcloud_ad/geometry.hpp>
+#include <pointcloud_ad/inspection_context.hpp>
 #include <pointcloud_ad/normalization.hpp>
 #include <pointcloud_ad/registration_engine.hpp>
 #include <pointcloud_ad/result.hpp>
@@ -25,6 +26,10 @@ int main() {
   if (!surface || surface.value().size() != 1U) {
     return 1;
   }
+  auto invalid_inspection = pointcloud_ad::InspectionContext::create(
+      pointcloud_ad::InspectionConfig{}, surface.value().view(), 1);
+  if (invalid_inspection)
+    return 1;
   pointcloud_ad::RegistrationParameters options{10, 1.0, 0.5, 1.0e-6, 1.0e-6, 1.0e-6};
   options.method = pointcloud_ad::RegistrationMethod::point_to_point;
   options.thread_count = 2;
@@ -41,7 +46,7 @@ int main() {
     }
     auto context =
         pointcloud_ad::RegistrationContext::create(surface.value().view(), options, 1, backend);
-    if (!context) {
+    if (!context || context.value().backend() != backend) {
       return 1;
     }
     auto moved = std::move(context).value();

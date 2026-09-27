@@ -1,5 +1,6 @@
 #include "normal_boundary.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <iostream>
@@ -143,5 +144,45 @@ int main() {
   passed &= expect(!wrong_unit && wrong_unit.error().code == ErrorCode::invalid_input,
                    "normal preprocessing must reject non-millimetre input");
 
+  std::vector<Vec3f> dense_points;
+  for (int x = -24; x <= 24; ++x)
+    for (int y = -24; y <= 24; ++y)
+      dense_points.push_back({0.23F * static_cast<float>(x), 0.17F * static_cast<float>(y),
+                              0.001F * static_cast<float>(x * x + 2 * y * y)});
+  std::vector<std::uint8_t> dense_mask(dense_points.size(), 1);
+  dense_mask[100] = 0;
+  auto dense = OwnedSurface::create(std::move(dense_points), {}, std::move(dense_mask), {},
+                                    LengthUnit::millimeter, frame("dense"))
+                   .value();
+  const auto same = [](const auto& a, const auto& b) {
+    return std::equal(a.surface().normals().begin(), a.surface().normals().end(),
+                      b.surface().normals().begin(), b.surface().normals().end(),
+                      [](auto x, auto y) { return x.x == y.x && x.y == y.y && x.z == y.z; }) &&
+           std::equal(a.surface().valid().begin(), a.surface().valid().end(),
+                      b.surface().valid().begin(), b.surface().valid().end()) &&
+           std::equal(a.reasons().begin(), a.reasons().end(), b.reasons().begin(),
+                      b.reasons().end()) &&
+           std::equal(a.orientation_valid().begin(), a.orientation_valid().end(),
+                      b.orientation_valid().begin(), b.orientation_valid().end()) &&
+           std::equal(a.boundary().begin(), a.boundary().end(), b.boundary().begin(),
+                      b.boundary().end());
+  };
+  auto scalar = prepare_normals_and_boundaries(dense.view(), 0.8, 8, 0.7, upward, 1);
+  if (!scalar)
+    return 1;
+  for (unsigned int workers : {2U, 4U, 8U}) {
+    auto parallel = prepare_normals_and_boundaries(dense.view(), 0.8, 8, 0.7, upward, workers);
+    passed &= expect(parallel && same(scalar.value(), parallel.value()),
+                     "estimated normals, masks and boundaries exactly match across workers");
+    auto supplied_scalar =
+        prepare_normals_and_boundaries(scalar.value().surface(), 0.8, 8, 0.7, upward, 1);
+    auto supplied_parallel =
+        prepare_normals_and_boundaries(scalar.value().surface(), 0.8, 8, 0.7, upward, workers);
+    passed &= expect(supplied_scalar && supplied_parallel &&
+                         same(supplied_scalar.value(), supplied_parallel.value()),
+                     "supplied normal path matches across workers");
+  }
+  passed &= expect(!prepare_normals_and_boundaries(dense.view(), 0.8, 8, 0.7, upward, 0),
+                   "zero worker budget rejected");
   return passed ? 0 : 1;
 }

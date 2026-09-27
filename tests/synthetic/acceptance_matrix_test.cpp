@@ -10,6 +10,7 @@
 #include <pointcloud_ad/geometry.hpp>
 #include <pointcloud_ad/inspection_pipeline.hpp>
 #include <pointcloud_ad/inspection_result.hpp>
+#include <pointcloud_ad/registration_engine.hpp>
 #include <pointcloud_ad/status.hpp>
 #include <pointcloud_ad/surface.hpp>
 #include <string_view>
@@ -116,10 +117,13 @@ bool expect(bool condition, std::string_view message) {
 
 } // namespace
 
-int main() {
+int run_suite(pointcloud_ad::ComputeBackend backend, std::uint32_t workers) {
   bool passed = true;
 
-  auto pipeline = InspectionPipeline::create(make_config());
+  auto config = make_config();
+  config.execution.backend = backend;
+  config.execution.thread_count = workers;
+  auto pipeline = InspectionPipeline::create(config);
   passed &= expect(static_cast<bool>(pipeline), "pipeline must be created from a valid config");
   if (!pipeline) {
     return 1;
@@ -349,5 +353,20 @@ int main() {
   // AC-012 (consumer_install) is covered by the Release -VerifyInstall consumer smoke test and is
   // intentionally not repeated here.
 
+  return passed ? 0 : 1;
+}
+
+int main() {
+  bool passed = true;
+  for (auto backend : {pointcloud_ad::ComputeBackend::cpu, pointcloud_ad::ComputeBackend::automatic,
+                       pointcloud_ad::ComputeBackend::gpu}) {
+    if (!pointcloud_ad::registration_backend_available(backend))
+      continue;
+    for (auto workers : {1U, 4U}) {
+      std::cout << "Acceptance: " << pointcloud_ad::compute_backend_name(backend)
+                << " workers=" << workers << '\n';
+      passed &= run_suite(backend, workers) == 0;
+    }
+  }
   return passed ? 0 : 1;
 }

@@ -179,7 +179,7 @@ int main() {
       const auto document = nlohmann::json::parse(report.value());
       passed &= expect(document["registration"]["actual_backend"] == "gpu" &&
                            document["registration"]["execution_scope"] ==
-                               "gpu_correspondence_cpu_solve" &&
+                               "gpu_resident_objective_cpu_solve" &&
                            document["registration"]["rmse_metric"] == "euclidean_mm",
                        "hybrid scope and RMSE explicit");
     }

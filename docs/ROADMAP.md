@@ -70,7 +70,7 @@ thresholds are requested after M6; repository and maintainer identity are needed
 
 ## M11-M13: measured CPU and SIMD optimization
 
-See [performance plan](PERFORMANCE_PLAN.md). M14-M16 remain future scope.
+See [performance plan](PERFORMANCE_PLAN.md) and the completed M14-M16 tasks below.
 
 | ID | Milestone | Deliverable | Depends on | Required evidence | Status |
 |---|---|---|---|---|---|
@@ -83,6 +83,20 @@ See [performance plan](PERFORMANCE_PLAN.md). M14-M16 remain future scope.
 | PCAD-SIMD-001 | M13 | Runtime scalar and AVX2 dispatch | CPU-003 | Tests, builds and measured evidence in task card | Complete |
 | PCAD-SIMD-002 | M13 | SIMD coordinate transformation | SIMD-001 | Tests, builds and measured evidence in task card | Complete |
 | PCAD-SIMD-003 | M13 | SIMD objective arithmetic | SIMD-002 | Tests, builds and measured evidence in task card | Complete |
+
+## M14-M16: resident GPU and complete inspection optimization
+
+| ID | Milestone | Deliverable | Depends on | Required evidence | Status |
+|---|---|---|---|---|---|
+| PCAD-GPU-001 | M14 | Resident scan, GPU point-to-plane/point-to-point objectives and compact deterministic reduction | SIMD-003 | Task-card tests, builds and measured acceptance | Complete |
+| PCAD-GPU-002 | M14 | Exact GPU KNN, covariance preparation and resident GICP objectives | GPU-001 | Task-card tests, builds and measured acceptance | Complete |
+| PCAD-GPU-003 | M14 | Resident transfer accounting, sanitizer and scale acceptance | GPU-002 | Task-card tests, builds and measured acceptance | Complete |
+| PCAD-PIPEPERF-001 | M15 | Owned reusable inspection reference and registration context | GPU-003 | Task-card tests, builds and measured acceptance | Complete |
+| PCAD-PIPEPERF-002 | M15 | Bounded parallel normal and boundary preprocessing | PIPEPERF-001 | Task-card tests, builds and measured acceptance | Complete |
+| PCAD-PIPEPERF-003 | M15 | Parallel comparison, measured voxel/clustering policy and complete inspection benchmark | PIPEPERF-002 | Task-card tests, builds and measured acceptance | Complete |
+| PCAD-POLICY-001 | M16 | Measured backend selection with explicit overrides and observable decisions | PIPEPERF-003 | Task-card tests, builds and measured acceptance | Complete |
+| PCAD-VALID-001 | M16 | Cross-platform/backend regression and generated ground-truth acceptance | POLICY-001 | Task-card tests, builds and measured acceptance | Complete |
+| PCAD-REL-002 | M16 | SDK release verification and evidence-based acceptance report | VALID-001 | Task-card tests, builds and measured acceptance | Complete |
 
 ## Milestone themes
 
@@ -101,4 +115,4 @@ See [performance plan](PERFORMANCE_PLAN.md). M14-M16 remain future scope.
 - **M11 Performance foundation:** end-to-end baselines, numerical contract and reusable iteration buffers.
 - **M12 CPU execution:** bounded workers, deterministic block reductions and parallel GICP covariance.
 - **M13 SIMD:** runtime scalar/AVX2 dispatch, coordinate/objective kernels and [measured verification](benchmarks/PCAD-SIMD-003.md).
-- **M14-M16 Future work:** GPU-resident optimization, inspection caching/parallelism and cross-hardware/industrial acceptance; create atomic task cards before implementation.
+- **M14-M16:** resident GPU objectives, inspection caching/parallelism, automatic backend policy, generated-data acceptance and verified SDK packages; see [release evidence](release/M16.md). Industrial scans and additional physical hardware remain deployment gates.

@@ -1,3 +1,4 @@
+#include "backend_policy.hpp"
 #include "pcl_registration_backend.hpp"
 
 #include <exception>
@@ -22,13 +23,14 @@ struct RegistrationContext::Impl {
   OwnedSurface reference;
   RegistrationParameters parameters;
   std::size_t capacity;
+  ComputeBackend actual_backend;
   std::unique_ptr<backends::pcl_backend::PreparedRegistration> prepared;
 
   Impl(OwnedSurface snapshot, RegistrationParameters options, std::size_t max_scan_points,
        ComputeBackend backend)
       : reference(std::move(snapshot)), parameters(options), capacity(max_scan_points),
-        prepared(backends::pcl_backend::prepare_registration(reference.view(), parameters, capacity,
-                                                             backend)) {}
+        actual_backend(backend), prepared(backends::pcl_backend::prepare_registration(
+                                     reference.view(), parameters, capacity, backend)) {}
 };
 
 RegistrationContext::RegistrationContext(std::unique_ptr<Impl> impl) noexcept
@@ -63,9 +65,13 @@ Result<RegistrationContext> RegistrationContext::create(SurfaceView reference,
     if (!snapshot) {
       return Result<RegistrationContext>::failure(std::move(snapshot).error());
     }
+    const auto selected = registration::select_backend(
+        backend, reference.size(), max_scan_points,
+        backend == ComputeBackend::automatic &&
+            registration::gpu_size_eligible(reference.size(), max_scan_points) &&
+            registration_backend_available(ComputeBackend::gpu));
     return Result<RegistrationContext>::success(RegistrationContext(std::make_unique<Impl>(
-        std::move(snapshot).value(), parameters, max_scan_points,
-        backend == ComputeBackend::automatic ? ComputeBackend::cpu : backend)));
+        std::move(snapshot).value(), parameters, max_scan_points, selected)));
   } catch (const std::invalid_argument& exception) {
     return Result<RegistrationContext>::failure(context_error(exception.what()));
   } catch (const std::exception& exception) {
@@ -75,6 +81,10 @@ Result<RegistrationContext> RegistrationContext::create(SurfaceView reference,
     return Result<RegistrationContext>::failure(
         context_error("unknown context preparation exception", ErrorCode::internal_error));
   }
+}
+
+ComputeBackend RegistrationContext::backend() const noexcept {
+  return impl_ ? impl_->actual_backend : ComputeBackend::automatic;
 }
 
 Result<RegistrationMetrics>

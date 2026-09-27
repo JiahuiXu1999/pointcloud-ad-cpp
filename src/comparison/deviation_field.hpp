@@ -63,6 +63,7 @@ private:
 // the reference must carry normals for every valid point.
 [[nodiscard]] Result<DeviationField>
 compute_deviation_field(SurfaceView reference, std::span<const std::uint8_t> reference_boundary,
-                        SurfaceView aligned_scan, const ValidatedComparisonConfig& config) noexcept;
+                        SurfaceView aligned_scan, const ValidatedComparisonConfig& config,
+                        std::uint32_t thread_count = 1) noexcept;
 
 } // namespace pointcloud_ad::comparison

@@ -1,6 +1,6 @@
 # PointCloudAD SDK 0.1
 
-## CPU and GPU registration (M10)
+## CPU and GPU registration (M10–M16)
 
 Include `pointcloud_ad/registration_engine.hpp` for direct registration. Set
 `RegistrationParameters::method` to `point_to_plane`, `point_to_point` or `gicp`, and pass
@@ -19,7 +19,7 @@ Existing configuration files retain CPU point-to-plane behavior. Optional JSON f
 
 This is a fragment to merge into a complete validated configuration, not a standalone config.
 The corresponding C++ fields are `config.registration.method` and `config.execution.backend`.
-`auto` currently resolves to CPU; explicit GPU returns an error if unavailable. GICP and
+`auto` uses the size/device policy below; explicit GPU returns an error if unavailable. GICP and
 point-to-point accept XYZ without normals through the direct registration API. The inspection
 pipeline still prepares normals for the downstream deviation/classification stages.
 
@@ -36,8 +36,8 @@ vcpkg `cuda` feature validates the system Toolkit; its port is pinned by the man
 baseline. It does not download a second dependency toolchain. The CUDA runtime is statically linked;
 a compatible NVIDIA driver is still required at execution. CPU presets have no CUDA dependency.
 
-GPU mode currently accelerates correspondence search, with CPU covariance preparation/reduction
-and solving. Results explicitly report `gpu_correspondence_cpu_solve`. CUDA exact search uses a
+GPU mode executes resident transforms, search, robust objectives, covariance and reductions, with
+CPU index construction and the 6x6 solve. Results report `gpu_resident_objective_cpu_solve`. CUDA exact search uses a
 balanced spatial index built on CPU and uploaded once per solve; it preserves inclusive-radius and
 original-index tie semantics. Use `RegistrationContext` to reuse the index and reference covariance across separate scans.
 See [the design and supported matrix](architecture/HETEROGENEOUS_REGISTRATION.md) for metric
@@ -150,4 +150,16 @@ CLI inspection.
 
 ## CPU arithmetic selection (M13)
 
-`RegistrationParameters::cpu_kernel` selects `CpuKernel::automatic`, `scalar`, or `avx2` independently of correspondence backend. It applies to CPU work in the hybrid CUDA path too. Automatic point-to-plane objective arithmetic stays scalar based on the measured baseline; transforms and the other objectives use AVX2 when available. Forced AVX2 also covers point-to-plane for explicit comparisons. Automatic dispatch checks the compiled implementation, CPUID AVX/AVX2/XSAVE/OSXSAVE and XCR0 XMM/YMM state. Forced unsupported AVX2 returns an error; auto safely uses scalar. `POINTCLOUDAD_ENABLE_AVX2=OFF` builds the portable fallback. The pipeline uses automatic arithmetic selection; explicit kernel overrides are currently a registration SDK control, not a JSON schema field. Rebuild C++ consumers after the parameter-layout addition.
+`RegistrationParameters::cpu_kernel` selects `CpuKernel::automatic`, `scalar`, or `avx2` independently of correspondence backend. The resident GPU path does not execute these CPU arithmetic kernels. Automatic point-to-plane objective arithmetic stays scalar based on the measured baseline; transforms and the other objectives use AVX2 when available. Forced AVX2 also covers point-to-plane for explicit comparisons. Automatic dispatch checks the compiled implementation, CPUID AVX/AVX2/XSAVE/OSXSAVE and XCR0 XMM/YMM state. Forced unsupported AVX2 returns an error; auto safely uses scalar. `POINTCLOUDAD_ENABLE_AVX2=OFF` builds the portable fallback. The pipeline uses automatic arithmetic selection; explicit kernel overrides are currently a registration SDK control, not a JSON schema field. Rebuild C++ consumers after the parameter-layout addition.
+
+## Repeated inspection (M15)
+
+`InspectionContext::create(config, reference, max_scan_points)` owns a normalized reference snapshot, normal/boundary preparation and reusable registration context. `run(scan, request)` returns the same domain result as one-shot inspection with those inputs; timestamps and timings describe each new run. Reference preparation is paid at creation and excluded from per-scan normalize/preprocess timings. Callers may release/mutate original reference/configuration storage after successful creation. Scan inputs are borrowed only for the synchronous call. Capacity is logical scan point count, including organized layouts; wrong capacity/frame and moved-from use return Result errors. Calls on one context must be serialized, while independent contexts may run concurrently with independent thread budgets. Changing reference or configuration requires a new context; there is no hidden pointer/global cache. File I/O and serialization remain caller responsibilities.
+
+## Automatic backend policy (M16)
+
+Explicit CPU/GPU overrides are unchanged. Automatic selects GPU only when both reference logical point count and declared scan capacity are at least 65,536 and a CUDA device is available; otherwise it selects CPU. The one-shot API uses the actual scan logical count as capacity. Context selection is immutable, so smaller subsequent frames retain that selection. Masked logical points count toward the threshold, row padding does not. This conservative warm-registration policy is based on [M14](benchmarks/PCAD-GPU-003.md) and [complete inspection measurements](benchmarks/PCAD-PIPEPERF-003.md) on one host; cold startup, masks, hardware and geometry can change the crossover. It does not guarantee every full inspection is faster. Use explicit CPU for latency-sensitive small frames or explicit GPU after deployment measurements.
+
+`RegistrationContext::backend()` reports the selected CPU/GPU backend (`automatic` only for a moved-from context). Inspection JSON reports both requested/actual backends. Missing CUDA uses CPU for auto; preparation/allocation/runtime failures after selection return `Result` errors without silent retry or backend changes. This makes resource failures observable. There is no device-memory budget promise. The GPU execution-scope string changed from the historical search-only value to `gpu_resident_objective_cpu_solve`; consumers matching this descriptive string must accept the new value. JSON schema version and quantitative metric meanings remain unchanged.
+
+Linux builds require the OpenMP runtime used by the C++ compiler because static PCL/FLANN references it. For Clang on Debian/Ubuntu, install the matching `libomp-<clang-major>-dev` compiler runtime (CI uses `libomp-dev`). CMake resolves `OpenMP::OpenMP_CXX`; no compiler/library paths are hard-coded. GCC provides its runtime through the normal compiler installation.

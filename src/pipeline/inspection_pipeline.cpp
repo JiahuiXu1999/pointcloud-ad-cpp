@@ -12,7 +12,9 @@
 #include <ctime>
 #include <exception>
 #include <iomanip>
+#include <limits>
 #include <optional>
+#include <pointcloud_ad/inspection_context.hpp>
 #include <pointcloud_ad/inspection_pipeline.hpp>
 #include <pointcloud_ad/normalization.hpp>
 #include <pointcloud_ad/registration_engine.hpp>
@@ -118,9 +120,11 @@ to_registration_parameters(const ValidatedRegistrationConfig& config,
   return DefectType::dent;
 }
 
-[[nodiscard]] Result<InspectionResult> run_impl(const ValidatedInspectionConfig& config,
-                                                SurfaceView reference, SurfaceView scan,
-                                                const InspectionRequest& request) {
+[[nodiscard]] Result<InspectionResult>
+run_impl(const ValidatedInspectionConfig& config, SurfaceView reference, SurfaceView scan,
+         const InspectionRequest& request,
+         const preprocess::NormalBoundaryResult* cached_reference = nullptr,
+         RegistrationContext* registration_context = nullptr) {
   InspectionResult result;
   result.provenance.schema_version = std::string(config.schema_version());
   result.provenance.run_id = request.run_id;
@@ -136,36 +140,47 @@ to_registration_parameters(const ValidatedRegistrationConfig& config,
   std::optional<OwnedSurface> scan_mm;
   {
     StageClock clock(result.timings, PipelineStage::normalize);
-    auto normalized_reference = normalize_surface(reference, reference.frame(), std::nullopt);
-    if (!normalized_reference) {
-      return Result<InspectionResult>::failure(std::move(normalized_reference).error());
+    if (!cached_reference) {
+      auto normalized_reference = normalize_surface(reference, reference.frame(), std::nullopt);
+      if (!normalized_reference) {
+        return Result<InspectionResult>::failure(std::move(normalized_reference).error());
+      }
+      reference_mm.emplace(std::move(normalized_reference).value());
     }
     auto normalized_scan = normalize_surface(scan, scan.frame(), std::nullopt);
     if (!normalized_scan) {
       return Result<InspectionResult>::failure(std::move(normalized_scan).error());
     }
-    reference_mm.emplace(std::move(normalized_reference).value());
     scan_mm.emplace(std::move(normalized_scan).value());
   }
 
   // P03: prepare normals and boundaries for both surfaces.
-  std::optional<preprocess::NormalBoundaryResult> reference_prepared;
+  std::optional<preprocess::NormalBoundaryResult> reference_storage;
+  const auto* reference_prepared = cached_reference;
   std::optional<preprocess::NormalBoundaryResult> scan_prepared;
   {
     StageClock clock(result.timings, PipelineStage::preprocess);
-    auto reference_result = preprocess::prepare_normals_and_boundaries(
-        reference_mm->view(), config.preprocess().normal_radius_mm,
-        config.preprocess().normal_min_neighbors, config.preprocess().boundary_radius_mm);
-    if (!reference_result) {
-      return Result<InspectionResult>::failure(std::move(reference_result).error());
+    if (!reference_prepared) {
+      if (!reference_mm)
+        return Result<InspectionResult>::failure(
+            pipeline_error(ErrorCode::internal_error, "reference normalization is unavailable"));
+      auto reference_result = preprocess::prepare_normals_and_boundaries(
+          reference_mm->view(), config.preprocess().normal_radius_mm,
+          config.preprocess().normal_min_neighbors, config.preprocess().boundary_radius_mm, {},
+          config.execution().thread_count);
+      if (!reference_result) {
+        return Result<InspectionResult>::failure(std::move(reference_result).error());
+      }
+      reference_storage.emplace(std::move(reference_result).value());
+      reference_prepared = &*reference_storage;
     }
     auto scan_result = preprocess::prepare_normals_and_boundaries(
         scan_mm->view(), config.preprocess().normal_radius_mm,
-        config.preprocess().normal_min_neighbors, config.preprocess().boundary_radius_mm);
+        config.preprocess().normal_min_neighbors, config.preprocess().boundary_radius_mm, {},
+        config.execution().thread_count);
     if (!scan_result) {
       return Result<InspectionResult>::failure(std::move(scan_result).error());
     }
-    reference_prepared.emplace(std::move(reference_result).value());
     scan_prepared.emplace(std::move(scan_result).value());
   }
 
@@ -194,10 +209,19 @@ to_registration_parameters(const ValidatedRegistrationConfig& config,
                                               {}});
     }
     result.registration.initial_pose = *initial;
-    auto solved = register_surfaces(
-        reference_prepared->surface(), scan_prepared->surface(), *initial,
-        to_registration_parameters(config.registration(), config.execution().thread_count),
-        config.execution().backend);
+    std::optional<RegistrationContext> temporary_context;
+    if (!registration_context) {
+      auto prepared = RegistrationContext::create(
+          reference_prepared->surface(),
+          to_registration_parameters(config.registration(), config.execution().thread_count),
+          scan_prepared->surface().size(), config.execution().backend);
+      if (!prepared)
+        return Result<InspectionResult>::failure(std::move(prepared).error());
+      temporary_context.emplace(std::move(prepared).value());
+      registration_context = &*temporary_context;
+    }
+    result.registration.actual_backend = registration_context->backend();
+    auto solved = registration_context->align(scan_prepared->surface(), *initial);
     if (!solved) {
       return Result<InspectionResult>::failure(std::move(solved).error());
     }
@@ -206,9 +230,6 @@ to_registration_parameters(const ValidatedRegistrationConfig& config,
 
   result.registration.method = config.registration().method;
   result.registration.requested_backend = config.execution().backend;
-  result.registration.actual_backend = config.execution().backend == ComputeBackend::automatic
-                                           ? ComputeBackend::cpu
-                                           : config.execution().backend;
   result.registration.final_pose = metrics->final_transform();
   result.registration.iterations = metrics->iterations();
   result.registration.converged = metrics->convergence() == RegistrationConvergence::converged;
@@ -251,14 +272,14 @@ to_registration_parameters(const ValidatedRegistrationConfig& config,
   const auto comparison_start = std::chrono::steady_clock::now();
   auto deviation_result = comparison::compute_deviation_field(
       reference_prepared->surface(), reference_prepared->boundary(), aligned_scan->view(),
-      config.comparison());
+      config.comparison(), config.execution().thread_count);
   if (!deviation_result) {
     return Result<InspectionResult>::failure(std::move(deviation_result).error());
   }
   comparison::DeviationField deviation_field = std::move(deviation_result).value();
-  auto coverage_result =
-      comparison::compute_coverage_field(reference_prepared->surface(), aligned_scan->view(),
-                                         scan_prepared->boundary(), config.comparison());
+  auto coverage_result = comparison::compute_coverage_field(
+      reference_prepared->surface(), aligned_scan->view(), scan_prepared->boundary(),
+      config.comparison(), config.execution().thread_count);
   if (!coverage_result) {
     return Result<InspectionResult>::failure(std::move(coverage_result).error());
   }
@@ -420,6 +441,76 @@ Result<InspectionResult> InspectionPipeline::run(SurfaceView reference, SurfaceV
   } catch (...) {
     return Result<InspectionResult>::failure(
         pipeline_error(ErrorCode::internal_error, "unknown exception"));
+  }
+}
+
+struct InspectionContext::Impl {
+  ValidatedInspectionConfig config;
+  preprocess::NormalBoundaryResult reference;
+  RegistrationContext registration;
+  std::size_t capacity;
+  Impl(ValidatedInspectionConfig options, preprocess::NormalBoundaryResult prepared,
+       RegistrationContext context, std::size_t size)
+      : config(std::move(options)), reference(std::move(prepared)),
+        registration(std::move(context)), capacity(size) {}
+};
+InspectionContext::InspectionContext(std::unique_ptr<Impl> impl) noexcept
+    : impl_(std::move(impl)) {}
+InspectionContext::InspectionContext(InspectionContext&&) noexcept = default;
+InspectionContext& InspectionContext::operator=(InspectionContext&&) noexcept = default;
+InspectionContext::~InspectionContext() = default;
+Result<InspectionContext> InspectionContext::create(InspectionConfig config, SurfaceView reference,
+                                                    std::size_t capacity) noexcept {
+  try {
+    if (capacity == 0 ||
+        capacity > static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max()))
+      return Result<InspectionContext>::failure(
+          pipeline_error(ErrorCode::invalid_input, "scan capacity must be in [1, INT32_MAX]"));
+    auto validated = validate_config(std::move(config));
+    if (!validated)
+      return Result<InspectionContext>::failure(std::move(validated).error());
+    auto options = std::move(validated).value();
+    auto normalized = normalize_surface(reference, reference.frame(), std::nullopt);
+    if (!normalized)
+      return Result<InspectionContext>::failure(std::move(normalized).error());
+    auto prepared = preprocess::prepare_normals_and_boundaries(
+        normalized.value().view(), options.preprocess().normal_radius_mm,
+        options.preprocess().normal_min_neighbors, options.preprocess().boundary_radius_mm, {},
+        options.execution().thread_count);
+    if (!prepared)
+      return Result<InspectionContext>::failure(std::move(prepared).error());
+    auto registration = RegistrationContext::create(
+        prepared.value().surface(),
+        to_registration_parameters(options.registration(), options.execution().thread_count),
+        capacity, options.execution().backend);
+    if (!registration)
+      return Result<InspectionContext>::failure(std::move(registration).error());
+    return Result<InspectionContext>::success(
+        InspectionContext(std::make_unique<Impl>(std::move(options), std::move(prepared).value(),
+                                                 std::move(registration).value(), capacity)));
+  } catch (const std::exception& e) {
+    return Result<InspectionContext>::failure(pipeline_error(ErrorCode::internal_error, e.what()));
+  } catch (...) {
+    return Result<InspectionContext>::failure(
+        pipeline_error(ErrorCode::internal_error, "unknown inspection preparation exception"));
+  }
+}
+Result<InspectionResult> InspectionContext::run(SurfaceView scan,
+                                                const InspectionRequest& request) noexcept {
+  try {
+    if (!impl_)
+      return Result<InspectionResult>::failure(
+          pipeline_error(ErrorCode::invalid_input, "inspection context was moved from"));
+    if (scan.size() > impl_->capacity)
+      return Result<InspectionResult>::failure(
+          pipeline_error(ErrorCode::invalid_input, "scan exceeds inspection context capacity"));
+    return run_impl(impl_->config, impl_->reference.surface(), scan, request, &impl_->reference,
+                    &impl_->registration);
+  } catch (const std::exception& e) {
+    return Result<InspectionResult>::failure(pipeline_error(ErrorCode::internal_error, e.what()));
+  } catch (...) {
+    return Result<InspectionResult>::failure(
+        pipeline_error(ErrorCode::internal_error, "unknown inspection execution exception"));
   }
 }
 

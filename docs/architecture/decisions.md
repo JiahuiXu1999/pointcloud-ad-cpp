@@ -15,7 +15,7 @@ Changes to these decisions require an ADR before implementation.
 | Precision | Point storage may use `float`; transforms and accumulations use `double` |
 | Ownership | `SurfaceView` borrows; `OwnedSurface` owns; `RegistrationContext` owns an immutable reference snapshot and prepared resources |
 | Errors | Public APIs return `Result<T>`; exceptions do not cross the boundary |
-| Registration | ADR-0010: shared point-to-plane / point-to-point / GICP objectives, CPU or optional GPU correspondence search, followed by a mandatory quality gate |
+| Registration | ADR-0010: shared point-to-plane / point-to-point / GICP objectives, CPU or optional resident GPU objectives with a CPU 6x6 solve, followed by a mandatory quality gate |
 | Comparison | Scan-to-reference deviation plus reference-to-scan coverage |
 | Outcome | PASS/FAIL/INDETERMINATE is separate from process exit status |
 | Schemas | Configuration and result JSON schemas are explicitly versioned |

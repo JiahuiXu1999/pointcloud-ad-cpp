@@ -1,3 +1,5 @@
+#include "backend_policy.hpp"
+
 #include <array>
 #include <cmath>
 #include <future>
@@ -91,6 +93,16 @@ int main() {
   static_assert(std::is_nothrow_move_constructible_v<RegistrationContext>);
   static_assert(std::is_nothrow_move_assignable_v<RegistrationContext>);
   bool passed = true;
+  using registration::select_backend;
+  passed &= expect(
+      select_backend(ComputeBackend::automatic, 65535, 65536, true) == ComputeBackend::cpu &&
+          select_backend(ComputeBackend::automatic, 65536, 65535, true) == ComputeBackend::cpu &&
+          select_backend(ComputeBackend::automatic, 65536, 65536, true) == ComputeBackend::gpu &&
+          select_backend(ComputeBackend::automatic, 65536, 65536, false) == ComputeBackend::cpu &&
+          select_backend(ComputeBackend::cpu, 1000000, 1000000, true) == ComputeBackend::cpu &&
+          select_backend(ComputeBackend::gpu, 1, 1, false) == ComputeBackend::gpu,
+      "automatic boundaries and explicit overrides");
+
   const auto reference_frame = FrameId::create("reference").value();
   const auto scan_frame = FrameId::create("scan").value();
   const auto initial = RigidTransform::create(kIdentity, scan_frame, reference_frame).value();
@@ -295,5 +307,36 @@ int main() {
   passed &= expect(!RegistrationContext::create(
                        meters, parameters(RegistrationMethod::point_to_point), scan.size()),
                    "unnormalized reference rejected");
+  {
+    std::vector<Vec3f> points, normals;
+    for (int y = 0; y < 256; ++y)
+      for (int x = 0; x < 256; ++x) {
+        points.push_back({static_cast<float>(x) * 0.25F, static_cast<float>(y) * 0.25F, 0});
+        normals.push_back({0, 0, 1});
+      }
+    const auto frame = FrameId::create("large").value();
+    auto surface = OwnedSurface::create(std::move(points), std::move(normals), {}, {},
+                                        LengthUnit::millimeter, frame)
+                       .value();
+    auto context =
+        RegistrationContext::create(surface.view(), parameters(RegistrationMethod::point_to_plane),
+                                    surface.size(), ComputeBackend::automatic);
+    passed &= expect(static_cast<bool>(context), "large automatic context");
+    if (context) {
+      const auto expected = registration_backend_available(ComputeBackend::gpu)
+                                ? ComputeBackend::gpu
+                                : ComputeBackend::cpu;
+      passed &= expect(context.value().backend() == expected, "observable automatic backend");
+      const auto identity = RigidTransform::create(kIdentity, frame, frame).value();
+      const auto solved = context.value().align(surface.view(), identity);
+      passed &= expect(solved && solved.value().valid_pairs() == surface.size() &&
+                           solved.value().inlier_rmse_mm() == 0,
+                       "large automatic registration geometry");
+      auto moved = std::move(context.value());
+      passed &= expect(context.value().backend() == ComputeBackend::automatic &&
+                           moved.backend() == expected,
+                       "moved context selection sentinel");
+    }
+  }
   return passed ? 0 : 1;
 }

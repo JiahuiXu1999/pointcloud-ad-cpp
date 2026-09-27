@@ -1,0 +1,225 @@
+{
+  "cases": [
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/normal",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/bump",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.698096752166748,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/dent",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.698096752166748,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/missing",
+      "coverage_ratio": 0.9768656603430786,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/noise",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.015059984289109707,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/density",
+      "coverage_ratio": 0.98569244046087,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/translated",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/bad_pose",
+      "coverage_ratio": 0.0,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "indeterminate"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "auto-4/normal",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "auto-4/bump",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.698096752166748,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "auto-4/dent",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.698096752166748,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "auto-4/missing",
+      "coverage_ratio": 0.9768656603430786,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "auto-4/noise",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.015059984289109707,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "auto-4/density",
+      "coverage_ratio": 0.98569244046087,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "auto-4/translated",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "auto-4/bad_pose",
+      "coverage_ratio": 0.0,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "indeterminate"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "gpu-4/normal",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "gpu-4/bump",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.698096752166748,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "gpu-4/dent",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.698096752166748,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "gpu-4/missing",
+      "coverage_ratio": 0.9768656603430786,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "gpu-4/noise",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.015059984289109707,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "gpu-4/density",
+      "coverage_ratio": 0.98569244046087,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "gpu-4/translated",
+      "coverage_ratio": 0.984496358763948,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "gpu",
+      "case": "gpu-4/bad_pose",
+      "coverage_ratio": 0.0,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "indeterminate"
+    }
+  ],
+  "executable_sha256": "176d2f245b11b79ed0533a2edae9d56a4f28fb5c9f573153ea82e781f8caa863",
+  "generator": "pcad-generated-v1",
+  "ground_truth_sha256": "9971bc92781028f46fe7b344d54aa70cf2d78c637506de3acd010b35ae9b018e",
+  "seed": 5489,
+  "status": "passed"
+}

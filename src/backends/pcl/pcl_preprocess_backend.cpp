@@ -1,5 +1,7 @@
 #include "pcl_preprocess_backend.hpp"
 
+#include "../../registration/cpu_executor.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -86,7 +88,8 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
 } // namespace
 
 Result<EstimatedNormals> estimate_normals(SurfaceView surface, double radius_mm,
-                                          std::uint32_t minimum_neighbors) noexcept {
+                                          std::uint32_t minimum_neighbors,
+                                          std::uint32_t thread_count) noexcept {
   try {
     auto mapping = make_valid_cloud(surface);
     EstimatedNormals result{std::vector<Vec3f>(surface.storage_size()),
@@ -96,29 +99,41 @@ Result<EstimatedNormals> estimate_normals(SurfaceView surface, double radius_mm,
     }
     auto tree = std::make_shared<pcl::search::KdTree<pcl::PointXYZ>>();
     tree->setInputCloud(mapping.cloud);
-    pcl::Indices neighbors;
-    std::vector<float> squared_distances;
-    for (std::size_t cloud_index = 0; cloud_index < mapping.cloud->size(); ++cloud_index) {
-      neighbors.clear();
-      squared_distances.clear();
-      tree->radiusSearch(static_cast<int>(cloud_index), radius_mm, neighbors, squared_distances);
-      std::sort(neighbors.begin(), neighbors.end());
-      if (neighbors.size() < minimum_neighbors || neighbors.size() < 3U) {
-        continue;
+    registration::CpuExecutor executor(thread_count, mapping.cloud->size());
+    struct Scratch {
+      pcl::Indices neighbors;
+      std::vector<float> squared_distances;
+      std::vector<double> angles;
+    };
+    std::vector<Scratch> scratch(executor.concurrency());
+    executor.run(mapping.cloud->size(), [&](std::size_t block, std::size_t worker) {
+      auto& neighbors = scratch[worker].neighbors;
+      auto& squared_distances = scratch[worker].squared_distances;
+      for (std::size_t cloud_index = block * registration::CpuExecutor::block_size;
+           cloud_index <
+           std::min(mapping.cloud->size(), (block + 1) * registration::CpuExecutor::block_size);
+           ++cloud_index) {
+        neighbors.clear();
+        squared_distances.clear();
+        tree->radiusSearch(static_cast<int>(cloud_index), radius_mm, neighbors, squared_distances);
+        std::sort(neighbors.begin(), neighbors.end());
+        if (neighbors.size() < minimum_neighbors || neighbors.size() < 3U) {
+          continue;
+        }
+        Eigen::Vector4f plane;
+        float curvature = std::numeric_limits<float>::quiet_NaN();
+        if (!pcl::computePointNormal(*mapping.cloud, neighbors, plane, curvature)) {
+          continue;
+        }
+        const Vec3f normal = normalized(Vec3f{plane.x(), plane.y(), plane.z()});
+        if (normal.x == 0.0F && normal.y == 0.0F && normal.z == 0.0F) {
+          continue;
+        }
+        const auto storage_index = mapping.storage_indices[cloud_index];
+        result.normals[storage_index] = normal;
+        result.valid[storage_index] = 1U;
       }
-      Eigen::Vector4f plane;
-      float curvature = std::numeric_limits<float>::quiet_NaN();
-      if (!pcl::computePointNormal(*mapping.cloud, neighbors, plane, curvature)) {
-        continue;
-      }
-      const Vec3f normal = normalized(Vec3f{plane.x(), plane.y(), plane.z()});
-      if (normal.x == 0.0F && normal.y == 0.0F && normal.z == 0.0F) {
-        continue;
-      }
-      const auto storage_index = mapping.storage_indices[cloud_index];
-      result.normals[storage_index] = normal;
-      result.valid[storage_index] = 1U;
-    }
+    });
     return Result<EstimatedNormals>::success(std::move(result));
   } catch (const std::exception& exception) {
     return Result<EstimatedNormals>::failure(feature_error("normal_estimation", exception.what()));
@@ -128,8 +143,9 @@ Result<EstimatedNormals> estimate_normals(SurfaceView surface, double radius_mm,
   }
 }
 
-Result<std::vector<std::uint8_t>> detect_unorganized_boundaries(SurfaceView surface,
-                                                                double radius_mm) noexcept {
+Result<std::vector<std::uint8_t>>
+detect_unorganized_boundaries(SurfaceView surface, double radius_mm,
+                              std::uint32_t thread_count) noexcept {
   try {
     auto mapping = make_valid_cloud(surface);
     std::vector<std::uint8_t> boundaries(surface.storage_size(), 0U);
@@ -138,57 +154,70 @@ Result<std::vector<std::uint8_t>> detect_unorganized_boundaries(SurfaceView surf
     }
     auto tree = std::make_shared<pcl::search::KdTree<pcl::PointXYZ>>();
     tree->setInputCloud(mapping.cloud);
-    pcl::Indices neighbors;
-    std::vector<float> squared_distances;
+    registration::CpuExecutor executor(thread_count, mapping.cloud->size());
+    struct Scratch {
+      pcl::Indices neighbors;
+      std::vector<float> squared_distances;
+      std::vector<double> angles;
+    };
+    std::vector<Scratch> scratch(executor.concurrency());
     constexpr double pi = 3.14159265358979323846;
     constexpr double threshold = pi / 2.0;
-    for (std::size_t cloud_index = 0; cloud_index < mapping.cloud->size(); ++cloud_index) {
-      neighbors.clear();
-      squared_distances.clear();
-      tree->radiusSearch(static_cast<int>(cloud_index), radius_mm, neighbors, squared_distances);
-      const auto storage_index = mapping.storage_indices[cloud_index];
-      const auto normal = normalized(surface.normals()[storage_index]);
-      const Vec3f axis =
-          std::abs(normal.x) <= std::abs(normal.y) && std::abs(normal.x) <= std::abs(normal.z)
-              ? Vec3f{1.0F, 0.0F, 0.0F}
-              : (std::abs(normal.y) <= std::abs(normal.z) ? Vec3f{0.0F, 1.0F, 0.0F}
-                                                          : Vec3f{0.0F, 0.0F, 1.0F});
-      const auto u = normalized(cross(normal, axis));
-      const auto v = cross(normal, u);
-      std::vector<double> angles;
-      angles.reserve(neighbors.size());
-      const auto origin = surface.points()[storage_index];
-      for (const auto neighbor : neighbors) {
-        if (neighbor == static_cast<int>(cloud_index)) {
+    executor.run(mapping.cloud->size(), [&](std::size_t block, std::size_t worker) {
+      auto& neighbors = scratch[worker].neighbors;
+      auto& squared_distances = scratch[worker].squared_distances;
+      for (std::size_t cloud_index = block * registration::CpuExecutor::block_size;
+           cloud_index <
+           std::min(mapping.cloud->size(), (block + 1) * registration::CpuExecutor::block_size);
+           ++cloud_index) {
+        neighbors.clear();
+        squared_distances.clear();
+        tree->radiusSearch(static_cast<int>(cloud_index), radius_mm, neighbors, squared_distances);
+        const auto storage_index = mapping.storage_indices[cloud_index];
+        const auto normal = normalized(surface.normals()[storage_index]);
+        const Vec3f axis =
+            std::abs(normal.x) <= std::abs(normal.y) && std::abs(normal.x) <= std::abs(normal.z)
+                ? Vec3f{1.0F, 0.0F, 0.0F}
+                : (std::abs(normal.y) <= std::abs(normal.z) ? Vec3f{0.0F, 1.0F, 0.0F}
+                                                            : Vec3f{0.0F, 0.0F, 1.0F});
+        const auto u = normalized(cross(normal, axis));
+        const auto v = cross(normal, u);
+        auto& angles = scratch[worker].angles;
+        angles.clear();
+        angles.reserve(neighbors.size());
+        const auto origin = surface.points()[storage_index];
+        for (const auto neighbor : neighbors) {
+          if (neighbor == static_cast<int>(cloud_index)) {
+            continue;
+          }
+          if (neighbor < 0) {
+            continue;
+          }
+          const auto neighbor_index = static_cast<std::size_t>(neighbor);
+          if (neighbor_index >= mapping.storage_indices.size()) {
+            continue;
+          }
+          const auto neighbor_point = surface.points()[mapping.storage_indices[neighbor_index]];
+          const Vec3f delta{neighbor_point.x - origin.x, neighbor_point.y - origin.y,
+                            neighbor_point.z - origin.z};
+          const double projected_x = dot(delta, u);
+          const double projected_y = dot(delta, v);
+          if (projected_x * projected_x + projected_y * projected_y > 1.0e-20) {
+            angles.push_back(std::atan2(projected_y, projected_x));
+          }
+        }
+        if (angles.size() < 3U) {
+          boundaries[storage_index] = 1U;
           continue;
         }
-        if (neighbor < 0) {
-          continue;
+        std::sort(angles.begin(), angles.end());
+        double maximum_gap = angles.front() + 2.0 * pi - angles.back();
+        for (std::size_t index = 1; index < angles.size(); ++index) {
+          maximum_gap = std::max(maximum_gap, angles[index] - angles[index - 1U]);
         }
-        const auto neighbor_index = static_cast<std::size_t>(neighbor);
-        if (neighbor_index >= mapping.storage_indices.size()) {
-          continue;
-        }
-        const auto neighbor_point = surface.points()[mapping.storage_indices[neighbor_index]];
-        const Vec3f delta{neighbor_point.x - origin.x, neighbor_point.y - origin.y,
-                          neighbor_point.z - origin.z};
-        const double projected_x = dot(delta, u);
-        const double projected_y = dot(delta, v);
-        if (projected_x * projected_x + projected_y * projected_y > 1.0e-20) {
-          angles.push_back(std::atan2(projected_y, projected_x));
-        }
+        boundaries[storage_index] = maximum_gap > threshold ? 1U : 0U;
       }
-      if (angles.size() < 3U) {
-        boundaries[storage_index] = 1U;
-        continue;
-      }
-      std::sort(angles.begin(), angles.end());
-      double maximum_gap = angles.front() + 2.0 * pi - angles.back();
-      for (std::size_t index = 1; index < angles.size(); ++index) {
-        maximum_gap = std::max(maximum_gap, angles[index] - angles[index - 1U]);
-      }
-      boundaries[storage_index] = maximum_gap > threshold ? 1U : 0U;
-    }
+    });
     return Result<std::vector<std::uint8_t>>::success(std::move(boundaries));
   } catch (const std::exception& exception) {
     return Result<std::vector<std::uint8_t>>::failure(

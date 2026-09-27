@@ -1,0 +1,81 @@
+{
+  "cases": [
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/normal",
+      "coverage_ratio": 0.9394082840236686,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/bump",
+      "coverage_ratio": 0.9394082840236686,
+      "max_abs_mm": 0.6690087914466858,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/dent",
+      "coverage_ratio": 0.9394082840236686,
+      "max_abs_mm": 0.6690087914466858,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/missing",
+      "coverage_ratio": 0.8203550295857989,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 1,
+      "verdict": "fail"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/noise",
+      "coverage_ratio": 0.9394082840236686,
+      "max_abs_mm": 0.015090994536876678,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/density",
+      "coverage_ratio": 0.9405917159763314,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/translated",
+      "coverage_ratio": 0.9394082840236686,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "pass"
+    },
+    {
+      "actual_backend": "cpu",
+      "case": "cpu-4/bad_pose",
+      "coverage_ratio": 0.0,
+      "max_abs_mm": 0.0,
+      "process_exit": 0,
+      "regions": 0,
+      "verdict": "indeterminate"
+    }
+  ],
+  "executable_sha256": "558ada34812019a623b3979dfa43a6e7349ba3c3b2e80838e5a4bd5a4c3f3216",
+  "generator": "pcad-generated-v1",
+  "ground_truth_sha256": "2a05739c1f2e31de0d5b984be86adc10314e0e06f4878885a1d57903751840ad",
+  "seed": 5489,
+  "status": "passed"
+}

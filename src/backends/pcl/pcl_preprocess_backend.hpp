@@ -12,9 +12,11 @@ struct EstimatedNormals final {
 };
 
 [[nodiscard]] Result<EstimatedNormals> estimate_normals(SurfaceView surface, double radius_mm,
-                                                        std::uint32_t minimum_neighbors) noexcept;
+                                                        std::uint32_t minimum_neighbors,
+                                                        std::uint32_t thread_count = 1) noexcept;
 
 [[nodiscard]] Result<std::vector<std::uint8_t>>
-detect_unorganized_boundaries(SurfaceView surface, double radius_mm) noexcept;
+detect_unorganized_boundaries(SurfaceView surface, double radius_mm,
+                              std::uint32_t thread_count = 1) noexcept;
 
 } // namespace pointcloud_ad::backends::pcl_backend

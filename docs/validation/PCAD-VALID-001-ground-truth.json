@@ -1,0 +1,114 @@
+{
+  "coordinate_zero_floor_mm": 1e-08,
+  "gaussian_sigma_mm": 1.5,
+  "generator": "pcad-generated-v1",
+  "noise_uniform_mm": [
+    -0.015,
+    0.015
+  ],
+  "normal": [
+    0,
+    0,
+    1
+  ],
+  "reference": {
+    "file": "reference.ply",
+    "point_count": 4225,
+    "sha256": "94231db5120d3e49475dd28894787282b98410793db37ff8f7f60a6b1e1aea5d"
+  },
+  "scenes": [
+    {
+      "defect_type": null,
+      "file": "normal.ply",
+      "injected_depth_mm": 0,
+      "missing_radius_mm": 0,
+      "name": "normal",
+      "point_count": 4225,
+      "sha256": "94231db5120d3e49475dd28894787282b98410793db37ff8f7f60a6b1e1aea5d",
+      "translation_z_mm": 0,
+      "verdict": "pass"
+    },
+    {
+      "defect_type": "bump",
+      "file": "bump.ply",
+      "injected_depth_mm": 0.7,
+      "missing_radius_mm": 0,
+      "name": "bump",
+      "point_count": 4225,
+      "sha256": "63bb3ddbd15bfed19da4e7ff477226c4d2832fe736b19c90b555ab69008d716e",
+      "translation_z_mm": 0,
+      "verdict": "fail"
+    },
+    {
+      "defect_type": "dent",
+      "file": "dent.ply",
+      "injected_depth_mm": -0.7,
+      "missing_radius_mm": 0,
+      "name": "dent",
+      "point_count": 4225,
+      "sha256": "ab7a4b8c3486b4e1e84b730a594d5a98a47c8e7c26b7ba214a4548d574b335a8",
+      "translation_z_mm": 0,
+      "verdict": "fail"
+    },
+    {
+      "defect_type": "missing_material",
+      "file": "missing.ply",
+      "injected_depth_mm": 0,
+      "missing_radius_mm": 3.0,
+      "name": "missing",
+      "point_count": 3784,
+      "sha256": "288e524489cbf3e29dee5e7a8c55480952fbc9997ef4ce30950694c36bf887a8",
+      "translation_z_mm": 0,
+      "verdict": "fail"
+    },
+    {
+      "defect_type": null,
+      "file": "noise.ply",
+      "injected_depth_mm": 0,
+      "missing_radius_mm": 0,
+      "name": "noise",
+      "point_count": 4225,
+      "sha256": "8ed5ddbebf0dc45e0878aca5d18fae725b84610a642cccc6b837c7df34df81a7",
+      "translation_z_mm": 0,
+      "verdict": "pass"
+    },
+    {
+      "defect_type": null,
+      "file": "density.ply",
+      "injected_depth_mm": 0,
+      "missing_radius_mm": 0,
+      "name": "density",
+      "point_count": 3185,
+      "sha256": "5057e9ac29e0b64318e74bc92f53eea46135f9f7c8b0cb505894edecf17e3fec",
+      "translation_z_mm": 0,
+      "verdict": "pass"
+    },
+    {
+      "defect_type": null,
+      "file": "translated.ply",
+      "injected_depth_mm": 0,
+      "missing_radius_mm": 0,
+      "name": "translated",
+      "point_count": 4225,
+      "sha256": "43bf29ac1c8cabae4fb39d1fced06ebcf6c55637feb57c5433a09b7d3443af09",
+      "translation_z_mm": 0.1,
+      "verdict": "pass"
+    },
+    {
+      "defect_type": null,
+      "file": "bad_pose.ply",
+      "injected_depth_mm": 0,
+      "missing_radius_mm": 0,
+      "name": "bad_pose",
+      "point_count": 4225,
+      "sha256": "9daf357a220f6ed381952a4c973c2e46e23ef09440aaf725de2869f7b4f81ce5",
+      "translation_z_mm": 0,
+      "verdict": "indeterminate"
+    }
+  ],
+  "scope": "synthetic verification; not industrial acceptance",
+  "seed": 5489,
+  "side": 65,
+  "spacing_mm": 0.25,
+  "units": "millimetres"
+}

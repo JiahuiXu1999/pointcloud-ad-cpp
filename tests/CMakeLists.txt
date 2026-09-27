@@ -184,7 +184,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/registration)
 target_link_libraries(
   pointcloud_ad_registration_icp_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure Threads::Threads)
 pointcloudad_set_warnings(
   pointcloud_ad_registration_icp_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -228,7 +228,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_deviation_field_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure Threads::Threads)
 pointcloudad_set_warnings(
   pointcloud_ad_deviation_field_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -253,7 +253,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_coverage_field_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure Threads::Threads)
 pointcloudad_set_warnings(
   pointcloud_ad_coverage_field_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -303,7 +303,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_defect_cluster_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure Threads::Threads)
 pointcloudad_set_warnings(
   pointcloud_ad_defect_cluster_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -332,7 +332,7 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}/src/backends/pcl)
 target_link_libraries(
   pointcloud_ad_defect_region_tests
-  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure)
+  PRIVATE pcl_common pcl_kdtree pcl_search pointcloudad_pcl_link_closure Threads::Threads)
 pointcloudad_set_warnings(
   pointcloud_ad_defect_region_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
 pointcloudad_enable_sanitizers(
@@ -581,7 +581,6 @@ pointcloudad_enable_sanitizers(pointcloud_ad_numerical_tests ${POINTCLOUDAD_ENAB
 pointcloudad_enable_clang_tidy(pointcloud_ad_numerical_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
 add_test(NAME pointcloud_ad.registration.numerical COMMAND pointcloud_ad_numerical_tests)
 
-target_link_libraries(pointcloud_ad_registration_icp_tests PRIVATE Threads::Threads)
 
 add_executable(pointcloud_ad_executor_tests unit/cpu_executor_test.cpp)
 target_compile_features(pointcloud_ad_executor_tests PRIVATE cxx_std_20)
@@ -612,3 +611,28 @@ pointcloudad_enable_clang_tidy(pointcloud_ad_kernel_tests ${POINTCLOUDAD_ENABLE_
 add_test(NAME pointcloud_ad.registration.kernels COMMAND pointcloud_ad_kernel_tests)
 target_link_libraries(pointcloud_ad_numerical_tests PRIVATE pointcloudad_cpu)
 target_include_directories(pointcloud_ad_numerical_tests PRIVATE ${PROJECT_SOURCE_DIR}/src/registration)
+
+if(POINTCLOUDAD_ENABLE_CUDA)
+  add_executable(pointcloud_ad_cuda_resident_tests unit/cuda_resident_test.cpp)
+  target_compile_features(pointcloud_ad_cuda_resident_tests PRIVATE cxx_std_20)
+  target_include_directories(pointcloud_ad_cuda_resident_tests PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/src/backends/cuda ${PROJECT_SOURCE_DIR}/src/registration)
+  target_link_libraries(pointcloud_ad_cuda_resident_tests PRIVATE pointcloudad_cuda pointcloudad_cpu Eigen3::Eigen)
+  pointcloudad_set_warnings(pointcloud_ad_cuda_resident_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+  pointcloudad_enable_clang_tidy(pointcloud_ad_cuda_resident_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+  add_test(NAME pointcloud_ad.cuda.resident COMMAND pointcloud_ad_cuda_resident_tests)
+  set_tests_properties(pointcloud_ad.cuda.resident PROPERTIES SKIP_RETURN_CODE 77 LABELS "cuda;determinism;release-gate")
+endif()
+
+add_executable(pointcloud_ad_inspection_context_tests unit/inspection_context_test.cpp)
+target_compile_features(pointcloud_ad_inspection_context_tests PRIVATE cxx_std_20)
+target_include_directories(pointcloud_ad_inspection_context_tests PRIVATE ${PROJECT_SOURCE_DIR}/benchmarks)
+target_link_libraries(pointcloud_ad_inspection_context_tests PRIVATE PointCloudAD::pointcloud_ad Threads::Threads)
+pointcloudad_set_warnings(pointcloud_ad_inspection_context_tests ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+pointcloudad_enable_sanitizers(pointcloud_ad_inspection_context_tests ${POINTCLOUDAD_ENABLE_ASAN} ${POINTCLOUDAD_ENABLE_UBSAN})
+pointcloudad_enable_clang_tidy(pointcloud_ad_inspection_context_tests ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+add_test(NAME pointcloud_ad.inspection.context COMMAND pointcloud_ad_inspection_context_tests)
+set_tests_properties(pointcloud_ad.inspection.context PROPERTIES LABELS "determinism;release-gate")
+
+target_link_libraries(pointcloud_ad_normal_boundary_tests PRIVATE Threads::Threads)
+
+target_include_directories(pointcloud_ad_context_tests PRIVATE ${PROJECT_SOURCE_DIR}/src/registration)

@@ -60,6 +60,7 @@ private:
 [[nodiscard]] Result<NormalBoundaryResult>
 prepare_normals_and_boundaries(SurfaceView surface, double normal_radius_mm,
                                std::uint32_t normal_min_neighbors, double boundary_radius_mm,
-                               NormalOrientationHint orientation = {}) noexcept;
+                               NormalOrientationHint orientation = {},
+                               std::uint32_t thread_count = 1) noexcept;
 
 } // namespace pointcloud_ad::preprocess

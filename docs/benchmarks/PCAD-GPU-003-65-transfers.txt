@@ -1,0 +1,2 @@
+points=4225,gicp=0,prepare_and_scan_upload_bytes=402560,prepare_download_bytes=0,two_evaluations_download_bytes=720,device_payload_bytes=634860
+points=4225,gicp=1,prepare_and_scan_upload_bytes=500920,prepare_download_bytes=8,two_evaluations_download_bytes=720,device_payload_bytes=2609936

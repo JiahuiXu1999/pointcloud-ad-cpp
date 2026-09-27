@@ -56,7 +56,8 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
 [[nodiscard]] Result<DeviationField> compute_impl(SurfaceView reference,
                                                   std::span<const std::uint8_t> reference_boundary,
                                                   SurfaceView aligned_scan,
-                                                  const ValidatedComparisonConfig& config) {
+                                                  const ValidatedComparisonConfig& config,
+                                                  std::uint32_t thread_count) {
   if (reference.unit() != LengthUnit::millimeter) {
     return Result<DeviationField>::failure(deviation_error(
         ErrorCode::invalid_input, "reference.unit", "must be normalized to millimetres"));
@@ -74,8 +75,8 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
         ErrorCode::invalid_input, "reference_boundary", "must span the reference storage layout"));
   }
 
-  auto nearest = backends::pcl_backend::nearest_neighbors(reference, aligned_scan,
-                                                          config.max_search_distance_mm);
+  auto nearest = backends::pcl_backend::nearest_neighbors(
+      reference, aligned_scan, config.max_search_distance_mm, thread_count);
   if (!nearest) {
     return Result<DeviationField>::failure(std::move(nearest).error());
   }
@@ -149,9 +150,10 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
 Result<DeviationField> compute_deviation_field(SurfaceView reference,
                                                std::span<const std::uint8_t> reference_boundary,
                                                SurfaceView aligned_scan,
-                                               const ValidatedComparisonConfig& config) noexcept {
+                                               const ValidatedComparisonConfig& config,
+                                               std::uint32_t thread_count) noexcept {
   try {
-    return compute_impl(reference, reference_boundary, aligned_scan, config);
+    return compute_impl(reference, reference_boundary, aligned_scan, config, thread_count);
   } catch (const std::exception& exception) {
     return Result<DeviationField>::failure(
         deviation_error(ErrorCode::internal_error, "exception", exception.what()));

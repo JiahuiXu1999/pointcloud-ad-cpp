@@ -1,4 +1,5 @@
 #include "deviation_field.hpp"
+#include "pcl_comparison_backend.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -163,6 +164,65 @@ int main() {
       }
       passed &= expect(no_neighbor > 0U && valid == 0U,
                        "a scan outside the search radius must be entirely no_neighbor");
+    }
+  }
+
+  // Multiple blocks, padded storage, masked queries, duplicate/tied points and exact radius.
+  {
+    constexpr std::size_t width = 33, height = 33, stride = 34;
+    std::vector<Vec3f> points((height - 1) * stride + width);
+    std::vector<Vec3f> normals(points.size(), {0, 0, 1});
+    std::vector<std::uint8_t> mask(points.size(), 1);
+    for (std::size_t y = 0; y < height; ++y)
+      for (std::size_t x = 0; x < width; ++x) {
+        const auto index = y * stride + x;
+        points[index] = {static_cast<float>(x / 2), static_cast<float>(y), 0};
+        if (index % 19 == 0)
+          mask[index] = 0;
+      }
+    auto reference_grid = OwnedSurface::create(points, normals, mask,
+                                               pointcloud_ad::GridTopology{width, height, stride},
+                                               LengthUnit::millimeter, reference_frame)
+                              .value();
+    for (auto& point : points)
+      point.z = 0.5F;
+    auto query_grid = OwnedSurface::create(points, normals, mask,
+                                           pointcloud_ad::GridTopology{width, height, stride},
+                                           LengthUnit::millimeter, scan_frame)
+                          .value();
+    const auto scalar = pointcloud_ad::backends::pcl_backend::nearest_neighbors(
+        reference_grid.view(), query_grid.view(), 0.5, 1);
+    const auto scalar_field =
+        compute_deviation_field(reference_grid.view(), {}, query_grid.view(), config, 1);
+    passed &= expect(scalar && scalar_field, "scalar organized oracle");
+    for (auto workers : {2U, 4U, 8U}) {
+      const auto parallel = pointcloud_ad::backends::pcl_backend::nearest_neighbors(
+          reference_grid.view(), query_grid.view(), 0.5, workers);
+      auto field =
+          compute_deviation_field(reference_grid.view(), {}, query_grid.view(), config, workers);
+      passed &= expect(parallel && field, "parallel organized comparison");
+      if (scalar && parallel) {
+        passed &= expect(scalar.value().neighbor_index == parallel.value().neighbor_index &&
+                             scalar.value().distance_mm == parallel.value().distance_mm,
+                         "exact parallel ties and distances");
+        passed &= expect(parallel.value().neighbor_index[1] >= 0 &&
+                             parallel.value().distance_mm[1] == 0.5F &&
+                             parallel.value().neighbor_index[33] == -1 &&
+                             parallel.value().neighbor_index[0] == -1,
+                         "inclusive radius, padding and mask");
+      }
+      if (scalar_field && field) {
+        passed &= expect(scalar_field.value().valid_count() == field.value().valid_count(),
+                         "parallel valid count");
+        for (std::size_t index = 0; index < field.value().size(); ++index) {
+          const auto& a = scalar_field.value().samples()[index];
+          const auto& b = field.value().samples()[index];
+          passed &= expect(a.reason == b.reason && a.signed_mm == b.signed_mm &&
+                               a.euclidean_mm == b.euclidean_mm &&
+                               a.normal_angle_deg == b.normal_angle_deg,
+                           "exact parallel deviation samples");
+        }
+      }
     }
   }
 

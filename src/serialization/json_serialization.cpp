@@ -408,7 +408,7 @@ constexpr std::string_view kSchemaVersion = "1.0";
   registration["requested_backend"] = compute_backend_name(result.registration.requested_backend);
   registration["actual_backend"] = compute_backend_name(result.registration.actual_backend);
   registration["execution_scope"] = result.registration.actual_backend == ComputeBackend::gpu
-                                        ? "gpu_correspondence_cpu_solve"
+                                        ? "gpu_resident_objective_cpu_solve"
                                         : "cpu";
   registration["rmse_metric"] = result.registration.method == RegistrationMethod::point_to_plane
                                     ? "point_to_plane_mm"

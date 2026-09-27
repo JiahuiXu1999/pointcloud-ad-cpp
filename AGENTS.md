@@ -46,7 +46,7 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 
 ## Current milestone
 
-M0, M0.1/B00, M1 through M10, and M11-M13 / PCAD-PERF-001 through PCAD-SIMD-003 are complete.
-See docs/benchmarks/PCAD-SIMD-003.md for measured scope and remaining industrial/platform gates.
-M14-M16 remain planned themes, not completed implementation.
+M0, M0.1/B00, and M1 through M16 are complete, including PCAD-REL-002.
+See docs/release/M16.md for build, generated-data acceptance and SDK package evidence.
+Labelled industrial scans and additional physical hardware remain deployment acceptance gates.
 Extend the roadmap with a new atomic task before further implementation work.

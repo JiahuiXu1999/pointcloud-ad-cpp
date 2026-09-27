@@ -105,7 +105,11 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
 
 [[nodiscard]] Result<NormalBoundaryResult>
 prepare_impl(SurfaceView surface, double normal_radius_mm, std::uint32_t normal_min_neighbors,
-             double boundary_radius_mm, NormalOrientationHint orientation) {
+             double boundary_radius_mm, NormalOrientationHint orientation,
+             std::uint32_t thread_count) {
+  if (thread_count == 0)
+    return Result<NormalBoundaryResult>::failure(
+        normal_error(ErrorCode::invalid_argument, "thread_count", "must be positive"));
   if (surface.unit() != LengthUnit::millimeter) {
     return Result<NormalBoundaryResult>::failure(normal_error(
         ErrorCode::invalid_input, "surface.unit", "must be normalized to millimetres"));
@@ -131,8 +135,8 @@ prepare_impl(SurfaceView surface, double normal_radius_mm, std::uint32_t normal_
   std::vector<Vec3f> normals(surface.storage_size());
   std::vector<std::uint8_t> normal_valid(surface.storage_size(), 0U);
   if (surface.normals().empty()) {
-    auto estimated =
-        backends::pcl_backend::estimate_normals(surface, normal_radius_mm, normal_min_neighbors);
+    auto estimated = backends::pcl_backend::estimate_normals(surface, normal_radius_mm,
+                                                             normal_min_neighbors, thread_count);
     if (!estimated) {
       return Result<NormalBoundaryResult>::failure(std::move(estimated).error());
     }
@@ -196,8 +200,8 @@ prepare_impl(SurfaceView surface, double normal_radius_mm, std::uint32_t normal_
   if (surface.grid()) {
     boundary = detect_grid_boundaries(output.value().view(), boundary_radius_mm);
   } else {
-    auto detected = backends::pcl_backend::detect_unorganized_boundaries(output.value().view(),
-                                                                         boundary_radius_mm);
+    auto detected = backends::pcl_backend::detect_unorganized_boundaries(
+        output.value().view(), boundary_radius_mm, thread_count);
     if (!detected) {
       return Result<NormalBoundaryResult>::failure(std::move(detected).error());
     }
@@ -211,13 +215,15 @@ prepare_impl(SurfaceView surface, double normal_radius_mm, std::uint32_t normal_
 
 } // namespace
 
-Result<NormalBoundaryResult>
-prepare_normals_and_boundaries(SurfaceView surface, double normal_radius_mm,
-                               std::uint32_t normal_min_neighbors, double boundary_radius_mm,
-                               NormalOrientationHint orientation) noexcept {
+Result<NormalBoundaryResult> prepare_normals_and_boundaries(SurfaceView surface,
+                                                            double normal_radius_mm,
+                                                            std::uint32_t normal_min_neighbors,
+                                                            double boundary_radius_mm,
+                                                            NormalOrientationHint orientation,
+                                                            std::uint32_t thread_count) noexcept {
   try {
     return prepare_impl(surface, normal_radius_mm, normal_min_neighbors, boundary_radius_mm,
-                        orientation);
+                        orientation, thread_count);
   } catch (const std::exception& exception) {
     return Result<NormalBoundaryResult>::failure(
         normal_error(ErrorCode::internal_error, "exception", exception.what()));

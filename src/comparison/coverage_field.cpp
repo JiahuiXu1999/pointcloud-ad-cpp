@@ -40,7 +40,8 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
 
 [[nodiscard]] Result<CoverageField> compute_impl(SurfaceView reference, SurfaceView aligned_scan,
                                                  std::span<const std::uint8_t> scan_boundary,
-                                                 const ValidatedComparisonConfig& config) {
+                                                 const ValidatedComparisonConfig& config,
+                                                 std::uint32_t thread_count) {
   if (reference.unit() != LengthUnit::millimeter) {
     return Result<CoverageField>::failure(coverage_error(ErrorCode::invalid_input, "reference.unit",
                                                          "must be normalized to millimetres"));
@@ -56,8 +57,8 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
 
   // Coverage queries reference points against a scan tree, so the search roles are swapped
   // relative to the deviation field.
-  auto nearest = backends::pcl_backend::nearest_neighbors(aligned_scan, reference,
-                                                          config.max_search_distance_mm);
+  auto nearest = backends::pcl_backend::nearest_neighbors(
+      aligned_scan, reference, config.max_search_distance_mm, thread_count);
   if (!nearest) {
     return Result<CoverageField>::failure(std::move(nearest).error());
   }
@@ -96,9 +97,10 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
 
 Result<CoverageField> compute_coverage_field(SurfaceView reference, SurfaceView aligned_scan,
                                              std::span<const std::uint8_t> scan_boundary,
-                                             const ValidatedComparisonConfig& config) noexcept {
+                                             const ValidatedComparisonConfig& config,
+                                             std::uint32_t thread_count) noexcept {
   try {
-    return compute_impl(reference, aligned_scan, scan_boundary, config);
+    return compute_impl(reference, aligned_scan, scan_boundary, config, thread_count);
   } catch (const std::exception& exception) {
     return Result<CoverageField>::failure(
         coverage_error(ErrorCode::internal_error, "exception", exception.what()));

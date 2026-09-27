@@ -27,16 +27,17 @@ CLI / InspectionPipeline / C++ registration consumer
 
 All methods are local registration and require an initial pose within a useful correspondence basin.
 They are not global-pose discovery algorithms. Optional source/reference normals reject back-facing
-correspondences when both are supplied. GICP estimates reference neighborhood covariance once per context and scan covariance per call on CPU, sorts neighbors before accumulation, regularizes the eigenvalues, and rotates source
+correspondences when both are supplied. GICP estimates reference neighborhood covariance once per context and scan covariance per call on the selected backend, sorts neighbors before accumulation, regularizes the eigenvalues, and rotates source
 covariances during optimization. Its covariance controls are exposed on `RegistrationParameters`.
 Pipeline/JSON GICP currently uses the documented defaults (12 neighbors, epsilon 0.001).
 
-The GPU mode is deliberately **hybrid**. Only correspondence search executes on GPU;
-preprocessing, covariance estimation, Huber weighting, double accumulation, 6x6 solve, quality
-gates and defect inspection execute on CPU. All three methods use that same split. CUDA headers
-and resource handles remain private. Each reusable context owns its stream and device buffers;
-the reference and its spatial index are uploaded once per context and queries/results transferred
-per iteration. One-shot calls use a temporary context. Align requires the device current at context
+GPU mode is hybrid: resident transforms, correspondence search, covariance estimation, Huber
+weighting, objective/metric accumulation and deterministic reduction run on GPU. Index construction,
+the 6x6 solve, convergence, preprocessing, quality gates and defect inspection remain CPU work.
+CUDA headers and resource handles remain private. Each reusable context owns its stream and device
+buffers; reference data uploads once per context, compact scan data once per align call, and each
+iteration returns a 360-byte equation/statistics packet. One-shot calls use a temporary context.
+Align requires the device current at context
 creation; switching it is rejected. Resource destruction temporarily selects the owning device and
 restores the thread's previous device. No persistent global thread/device policy is changed.
 M12 uses a context-owned bounded executor for CPU queries, fixed-block objective/metric reduction
@@ -58,7 +59,7 @@ creation, never by address-based cache heuristics or silent rebuilding. Prepared
 caller mutation/destruction of the original reference has no effect. CPU and GPU contexts follow
 the same ownership and capacity contracts. Memory stays allocated until move assignment/destruction.
 
-Per-frame input validation, scan extraction/covariance and ordered optimization remain CPU work.
+Per-frame input validation and scan extraction remain CPU work; covariance/objective arithmetic follows the selected backend.
 No scan covariance, pose or correspondence results are reused between frames. Same-context calls
 require external serialization because GPU scratch is mutable; independent contexts can run
 concurrently. Invalid scan input does not change prepared reference state. The public boundary
@@ -73,7 +74,7 @@ The explicit scan bound reserves CUDA scratch without reallocating on varying fr
 
 - `cpu`: portable indexed CPU implementation; requires no CUDA installation.
 - `gpu`: requires a CUDA-enabled build and available NVIDIA device. Never silently falls back.
-- `auto`: explicitly resolves to CPU until measured crossover policies are added in a later task.
+- `auto`: GPU when reference logical count and scan capacity are both >=65,536 and CUDA is available; otherwise CPU. Selection is fixed at context creation and observable through `backend()` and inspection requested/actual fields. See the SDK for warm-start and hardware limitations.
 - Unknown enum/string values fail validation; CUDA runtime failures become public `Result` errors.
 - Stable source ordering, lower-index nearest-distance ties and ordered double reductions are used.
   CPU/GPU acceptance compares pose and metrics within 1e-5 on the committed synthetic fixture;
@@ -115,3 +116,11 @@ and the shared reduction can migrate to GPU behind these contracts later. NDT/VG
 registration and global feature registration need their own algorithm-specific contracts and tests.
 
 Design references and dependency decision: [ADR-0010](../adr/0010-heterogeneous-registration.md).
+
+## M14 resident arithmetic
+
+PCAD-GPU-001 keeps a validated compact scan and its normalized normals on the device for the duration of an align call. Point-to-plane and point-to-point transform/search/filter/Huber/objective and final residual metrics run on the context's stream. Each iteration returns a 360-byte equation/statistics packet, including an invalid-coordinate flag; the existing CPU 6x6 solve and convergence semantics remain unchanged. A fixed 128-lane binary tree and increasing block merge order replace floating-point atomics. CPU/GPU use the existing metric-specific parity tolerances; repeated GPU calls remain exact. The old host-query search API remains as a test oracle; GICP is also resident after PCAD-GPU-002.
+
+Reference order is reconstructed on-device only when resident arithmetic is enabled; search-only users retain their original memory footprint. Context resources drain on errors and are released on their owning device. No GPU/PCL handles enter public headers. PCAD-GPU-002 extends this path to covariance and GICP.
+
+PCAD-GPU-002 adds exact device KNN and deterministic 3x3 covariance eigendecomposition. Reference covariances stay resident; each new scan constructs its own spatial index and covariances once. Iterative GICP covariance rotation, 3x3 information inversion and weighted equations then run on-device. KNN workspace is bounded to 16,384 queries per batch and 1,024 neighbors; insufficient, coincident or collinear support remains an input error. The covariance validity transfer is one integer; dense covariance downloads exist only for the private test oracle. Spatial-index construction remains CPU work performed once per scan, not per iteration.

@@ -235,6 +235,8 @@ using Covariance = Eigen::Matrix3d;
   struct Scratch {
     std::vector<int> indices;
     std::vector<float> distances;
+    std::vector<int> ties;
+    std::vector<float> tie_distances;
   };
   std::vector<Scratch> scratch(executor.concurrency());
   for (auto& item : scratch) {
@@ -242,15 +244,30 @@ using Covariance = Eigen::Matrix3d;
     item.distances.resize(parameters.covariance_neighbors);
   }
   executor.run(cloud.points.size(), [&](std::size_t block, std::size_t worker) {
-    auto& [indices, distances] = scratch[worker];
+    auto& [indices, distances, ties, tie_distances] = scratch[worker];
     for (std::size_t point_index = block * CpuExecutor::block_size;
          point_index < std::min(cloud.points.size(), (block + 1) * CpuExecutor::block_size);
          ++point_index) {
       const auto& point = (*points)[point_index];
-      if (tree.nearestKSearch(point, static_cast<int>(parameters.covariance_neighbors), indices,
-                              distances) < static_cast<int>(parameters.covariance_neighbors)) {
+      if (tree.nearestKSearch(point, parameters.covariance_neighbors, indices, distances) <
+          static_cast<int>(parameters.covariance_neighbors)) {
         throw std::invalid_argument("GICP covariance neighborhood has insufficient support");
       }
+      const double radius = std::sqrt(static_cast<double>(distances.back())) * (1 + 1e-6) + 1e-6;
+      tree.radiusSearch(point, radius, ties, tie_distances);
+      const auto distance = [&](int index) {
+        const auto p = cloud.points[static_cast<std::size_t>(index)];
+        const auto q = cloud.points[point_index];
+        const auto delta = p - q;
+        return dot(delta, delta);
+      };
+      std::sort(ties.begin(), ties.end(), [&](int left, int right) {
+        const double a = distance(left), b = distance(right);
+        return a < b || (a == b && left < right);
+      });
+      if (ties.size() < parameters.covariance_neighbors)
+        throw std::invalid_argument("GICP covariance neighborhood has insufficient support");
+      indices.assign(ties.begin(), ties.begin() + parameters.covariance_neighbors);
       std::sort(indices.begin(), indices.end());
       Eigen::Vector3d mean = Eigen::Vector3d::Zero();
       for (int index : indices) {
@@ -357,6 +374,11 @@ public:
     return result;
   }
 
+#ifdef POINTCLOUDAD_WITH_CUDA
+  cuda_backend::CorrespondenceSearch* gpu() noexcept {
+    return gpu_.get();
+  }
+#endif
 private:
   struct QueryScratch {
     std::vector<int> indices = std::vector<int>(1);
@@ -407,9 +429,16 @@ public:
         executor_(parameters.thread_count, std::max(max_scan_points, reference.size())),
         parameters_(parameters), reference_cloud_(extract_valid(reference)),
         search_(checked_reference(parameters), max_scan_points, backend, executor_) {
+#ifdef POINTCLOUDAD_WITH_CUDA
+    if (search_.gpu()) {
+      search_.gpu()->prepare_resident(reference_cloud_.normals);
+      if (parameters.method == RegistrationMethod::gicp)
+        search_.gpu()->prepare_gicp(parameters.covariance_neighbors, parameters.covariance_epsilon);
+    }
+#endif
     transformed_.reserve(max_scan_points);
     reduction_.reserve(CpuExecutor::blocks(max_scan_points));
-    if (parameters.method == RegistrationMethod::gicp) {
+    if (parameters.method == RegistrationMethod::gicp && backend == ComputeBackend::cpu) {
       reference_covariances_ = estimate_covariances(reference_cloud_, parameters, executor_);
     }
   }
@@ -433,8 +462,15 @@ public:
       if (scan_cloud.points.empty()) {
         throw std::invalid_argument("registration requires valid scan points");
       }
-      const auto scan_covariances = gicp ? estimate_covariances(scan_cloud, parameters, executor_)
-                                         : std::vector<Covariance>{};
+      bool resident = false;
+#ifdef POINTCLOUDAD_WITH_CUDA
+      resident = search.gpu() != nullptr;
+      if (resident)
+        search.gpu()->upload_scan(scan_cloud.points, scan_cloud.normals);
+#endif
+      const auto scan_covariances = gicp && !resident
+                                        ? estimate_covariances(scan_cloud, parameters, executor_)
+                                        : std::vector<Covariance>{};
       const bool reject_back_facing =
           !reference_cloud.normals.empty() && !scan_cloud.normals.empty();
       const auto accepted = [&](std::size_t source, std::size_t target, const Mat4& pose) {
@@ -448,65 +484,81 @@ public:
       bool degenerate = false;
       double previous_mean_residual = std::numeric_limits<double>::infinity();
       for (std::uint32_t iteration = 0; iteration < parameters.max_iterations; ++iteration) {
-        transform_points(scan_cloud, current, transformed_, executor_, kernel_);
-        const auto& transformed = transformed_;
-        const auto& neighbors =
-            search.query(transformed, parameters.max_correspondence_distance_mm);
-        Covariance rotation;
-        rotation << current[0], current[1], current[2], current[4], current[5], current[6],
-            current[8], current[9], current[10];
-        reduction_.assign(CpuExecutor::blocks(transformed.size()), Accumulation{});
-        executor_.run(transformed.size(), [&](std::size_t block, std::size_t) {
-          auto& normal_matrix = reduction_[block].matrix;
-          auto& gradient = reduction_[block].gradient;
-          auto& residual_sum = reduction_[block].residual;
-          auto& correspondence_count = reduction_[block].count;
-          for (std::size_t i = block * CpuExecutor::block_size;
-               i < std::min(transformed.size(), (block + 1) * CpuExecutor::block_size); ++i) {
-            if (neighbors[i] < 0) {
-              continue;
-            }
-            const auto j = static_cast<std::size_t>(neighbors[i]);
-            if (!accepted(i, j, current)) {
-              continue;
-            }
-            registration::ObjectiveInput input;
-            input.point = transformed[i];
-            input.reference = reference_cloud.points[j];
-            input.normal = plane ? reference_cloud.normals[j] : V3{};
-            input.huber_delta = parameters.huber_delta_mm;
-            input.plane = plane;
-            input.generalized = gicp;
-            if (gicp) {
-              const Covariance information =
-                  (reference_covariances[j] + rotation * scan_covariances[i] * rotation.transpose())
-                      .inverse();
-              for (std::size_t row = 0; row < 3; ++row) {
-                for (std::size_t col = 0; col < 3; ++col) {
-                  input.information[row * 3 + col] =
-                      information(static_cast<Eigen::Index>(row), static_cast<Eigen::Index>(col));
-                }
-              }
-            }
-            registration::ObjectiveContribution contribution;
-            objective(input, contribution);
-            normal_matrix += Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(
-                contribution.matrix.data());
-            gradient += Eigen::Map<const Eigen::Matrix<double, 6, 1>>(contribution.gradient.data());
-            residual_sum += contribution.absolute_residual;
-            ++correspondence_count;
-          }
-        });
         Eigen::Matrix<double, 6, 6> normal_matrix = Eigen::Matrix<double, 6, 6>::Zero();
         Eigen::Matrix<double, 6, 1> gradient = Eigen::Matrix<double, 6, 1>::Zero();
         double residual_sum = 0.0;
         std::uint64_t correspondence_count = 0;
-        for (const auto& block : reduction_) {
-          normal_matrix += block.matrix;
-          gradient += block.gradient;
-          residual_sum += block.residual;
-          correspondence_count += block.count;
+        if (!resident) {
+          transform_points(scan_cloud, current, transformed_, executor_, kernel_);
+          const auto& transformed = transformed_;
+          const auto& neighbors =
+              search.query(transformed, parameters.max_correspondence_distance_mm);
+          Covariance rotation;
+          rotation << current[0], current[1], current[2], current[4], current[5], current[6],
+              current[8], current[9], current[10];
+          reduction_.assign(CpuExecutor::blocks(transformed.size()), Accumulation{});
+          executor_.run(transformed.size(), [&](std::size_t block, std::size_t) {
+            auto& block_normal_matrix = reduction_[block].matrix;
+            auto& block_gradient = reduction_[block].gradient;
+            auto& block_residual_sum = reduction_[block].residual;
+            auto& block_correspondence_count = reduction_[block].count;
+            for (std::size_t i = block * CpuExecutor::block_size;
+                 i < std::min(transformed.size(), (block + 1) * CpuExecutor::block_size); ++i) {
+              if (neighbors[i] < 0) {
+                continue;
+              }
+              const auto j = static_cast<std::size_t>(neighbors[i]);
+              if (!accepted(i, j, current)) {
+                continue;
+              }
+              registration::ObjectiveInput input;
+              input.point = transformed[i];
+              input.reference = reference_cloud.points[j];
+              input.normal = plane ? reference_cloud.normals[j] : V3{};
+              input.huber_delta = parameters.huber_delta_mm;
+              input.plane = plane;
+              input.generalized = gicp;
+              if (gicp) {
+                const Covariance information =
+                    (reference_covariances[j] +
+                     rotation * scan_covariances[i] * rotation.transpose())
+                        .inverse();
+                for (std::size_t row = 0; row < 3; ++row) {
+                  for (std::size_t col = 0; col < 3; ++col) {
+                    input.information[row * 3 + col] =
+                        information(static_cast<Eigen::Index>(row), static_cast<Eigen::Index>(col));
+                  }
+                }
+              }
+              registration::ObjectiveContribution contribution;
+              objective(input, contribution);
+              block_normal_matrix += Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(
+                  contribution.matrix.data());
+              block_gradient +=
+                  Eigen::Map<const Eigen::Matrix<double, 6, 1>>(contribution.gradient.data());
+              block_residual_sum += contribution.absolute_residual;
+              ++block_correspondence_count;
+            }
+          });
+          for (const auto& block : reduction_) {
+            normal_matrix += block.matrix;
+            gradient += block.gradient;
+            residual_sum += block.residual;
+            correspondence_count += block.count;
+          }
         }
+#ifdef POINTCLOUDAD_WITH_CUDA
+        if (resident) {
+          const auto equation =
+              search.gpu()->evaluate(current, parameters.max_correspondence_distance_mm,
+                                     parameters.huber_delta_mm, plane, false);
+          normal_matrix =
+              Eigen::Map<const Eigen::Matrix<double, 6, 6, Eigen::RowMajor>>(equation.values);
+          gradient = Eigen::Map<const Eigen::Matrix<double, 6, 1>>(equation.values + 36);
+          residual_sum = equation.values[42];
+          correspondence_count = static_cast<std::uint64_t>(equation.values[43]);
+        }
+#endif
         if (correspondence_count < 6U) {
           degenerate = true;
           break;
@@ -545,36 +597,48 @@ public:
       if (!validated) {
         return Result<RegistrationMetrics>::failure(std::move(validated).error());
       }
-      transform_points(scan_cloud, final_transform, transformed_, executor_, kernel_);
-      const auto& transformed = transformed_;
-      const auto& neighbors = search.query(transformed, parameters.max_correspondence_distance_mm);
-      reduction_.assign(CpuExecutor::blocks(transformed.size()), Accumulation{});
-      executor_.run(transformed.size(), [&](std::size_t block, std::size_t) {
-        auto& squared_residual_sum = reduction_[block].residual;
-        auto& valid_pairs = reduction_[block].count;
-        for (std::size_t i = block * CpuExecutor::block_size;
-             i < std::min(transformed.size(), (block + 1) * CpuExecutor::block_size); ++i) {
-          if (neighbors[i] < 0) {
-            continue;
-          }
-          const auto j = static_cast<std::size_t>(neighbors[i]);
-          if (!accepted(i, j, final_transform)) {
-            continue;
-          }
-          const auto d = transformed[i] - reference_cloud.points[j];
-          // Preserve the original plane residual metric. Point-to-point and GICP report Euclidean
-          // inlier RMSE in mm, never the dimensionless/regularized optimization objective.
-          const double residual = plane ? dot(reference_cloud.normals[j], d) : norm(d);
-          squared_residual_sum += residual * residual;
-          ++valid_pairs;
-        }
-      });
       double squared_residual_sum = 0.0;
       std::uint64_t valid_pairs = 0;
-      for (const auto& block : reduction_) {
-        squared_residual_sum += block.residual;
-        valid_pairs += block.count;
+      if (!resident) {
+        transform_points(scan_cloud, final_transform, transformed_, executor_, kernel_);
+        const auto& transformed = transformed_;
+        const auto& neighbors =
+            search.query(transformed, parameters.max_correspondence_distance_mm);
+        reduction_.assign(CpuExecutor::blocks(transformed.size()), Accumulation{});
+        executor_.run(transformed.size(), [&](std::size_t block, std::size_t) {
+          auto& block_squared_residual_sum = reduction_[block].residual;
+          auto& block_valid_pairs = reduction_[block].count;
+          for (std::size_t i = block * CpuExecutor::block_size;
+               i < std::min(transformed.size(), (block + 1) * CpuExecutor::block_size); ++i) {
+            if (neighbors[i] < 0) {
+              continue;
+            }
+            const auto j = static_cast<std::size_t>(neighbors[i]);
+            if (!accepted(i, j, final_transform)) {
+              continue;
+            }
+            const auto d = transformed[i] - reference_cloud.points[j];
+            // Preserve the original plane residual metric. Point-to-point and GICP report Euclidean
+            // inlier RMSE in mm, never the dimensionless/regularized optimization objective.
+            const double residual = plane ? dot(reference_cloud.normals[j], d) : norm(d);
+            block_squared_residual_sum += residual * residual;
+            ++block_valid_pairs;
+          }
+        });
+        for (const auto& block : reduction_) {
+          squared_residual_sum += block.residual;
+          valid_pairs += block.count;
+        }
       }
+#ifdef POINTCLOUDAD_WITH_CUDA
+      if (resident) {
+        const auto equation =
+            search.gpu()->evaluate(final_transform, parameters.max_correspondence_distance_mm,
+                                   parameters.huber_delta_mm, plane, true);
+        squared_residual_sum = equation.values[42];
+        valid_pairs = static_cast<std::uint64_t>(equation.values[43]);
+      }
+#endif
       const double fitness =
           static_cast<double>(valid_pairs) / static_cast<double>(scan_cloud.points.size());
       const double rmse = valid_pairs == 0U

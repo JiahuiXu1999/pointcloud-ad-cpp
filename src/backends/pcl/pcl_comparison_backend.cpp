@@ -1,5 +1,8 @@
 #include "pcl_comparison_backend.hpp"
 
+#include "../../registration/cpu_executor.hpp"
+
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
 #include <exception>
@@ -43,7 +46,8 @@ template <typename Function> void for_each_logical_index(SurfaceView surface, Fu
 } // namespace
 
 Result<NearestNeighborResult> nearest_neighbors(SurfaceView reference, SurfaceView query,
-                                                double max_distance_mm) noexcept {
+                                                double max_distance_mm,
+                                                std::uint32_t thread_count) noexcept {
   try {
     auto reference_cloud = std::make_shared<pcl::PointCloud<pcl::PointXYZ>>();
     std::vector<std::size_t> storage_indices;
@@ -70,12 +74,18 @@ Result<NearestNeighborResult> nearest_neighbors(SurfaceView reference, SurfaceVi
     pcl::KdTreeFLANN<pcl::PointXYZ> tree;
     tree.setInputCloud(reference_cloud);
 
-    pcl::PointXYZ search_point;
-    std::vector<int> indices(1);
-    std::vector<float> squared_distances(1);
+    registration::CpuExecutor executor(thread_count, query.size());
+    struct Scratch {
+      std::vector<int> indices = std::vector<int>(1);
+      std::vector<float> squared_distances = std::vector<float>(1);
+    };
+    std::vector<Scratch> scratch(executor.concurrency());
     const float squared_limit = static_cast<float>(max_distance_mm * max_distance_mm);
 
-    for_each_logical_index(query, [&](std::size_t index) {
+    const auto query_one = [&](std::size_t index, Scratch& buffer) {
+      auto& indices = buffer.indices;
+      auto& squared_distances = buffer.squared_distances;
+      pcl::PointXYZ search_point;
       if (!valid_at(query, index)) {
         return;
       }
@@ -98,6 +108,17 @@ Result<NearestNeighborResult> nearest_neighbors(SurfaceView reference, SurfaceVi
       }
       result.neighbor_index[index] = static_cast<std::int32_t>(storage_indices[neighbor]);
       result.distance_mm[index] = std::sqrt(squared_distances[0]);
+    };
+    executor.run(query.size(), [&](std::size_t block, std::size_t worker) {
+      for (std::size_t logical = block * registration::CpuExecutor::block_size;
+           logical < std::min(query.size(), (block + 1) * registration::CpuExecutor::block_size);
+           ++logical) {
+        const auto index = query.grid()
+                               ? (logical / query.grid()->width) * query.grid()->row_stride +
+                                     logical % query.grid()->width
+                               : logical;
+        query_one(index, scratch[worker]);
+      }
     });
 
     return Result<NearestNeighborResult>::success(std::move(result));

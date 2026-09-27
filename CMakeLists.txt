@@ -21,6 +21,11 @@ if(POLICY CMP0144)
   set(CMAKE_POLICY_DEFAULT_CMP0144 NEW)
 endif()
 
+# Linux PCL/FLANN uses OpenMP even when the application is built with Clang.
+# Require its compiler runtime up front instead of leaving unresolved GOMP/omp symbols.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  find_package(OpenMP REQUIRED COMPONENTS CXX)
+endif()
 find_package(PCL CONFIG REQUIRED COMPONENTS common features io kdtree search)
 find_package(Threads REQUIRED)
 find_package(lz4 CONFIG REQUIRED)
@@ -53,6 +58,10 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib")
 
 add_library(pointcloud_ad SHARED)
 add_library(PointCloudAD::pointcloud_ad ALIAS pointcloud_ad)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  # Private shared dependencies installed beside the SDK library remain relocatable.
+  set_target_properties(pointcloud_ad PROPERTIES INSTALL_RPATH "$ORIGIN")
+endif()
 
 target_sources(
   pointcloud_ad
@@ -90,6 +99,7 @@ target_sources(
     src/preprocess/normal_boundary.hpp
     src/preprocess/voxel_sampling.cpp
     src/preprocess/voxel_sampling.hpp
+    src/registration/backend_policy.hpp
     src/registration/cpu_executor.hpp
     src/registration/registration_engine.cpp
     src/registration/registration_gate.cpp
@@ -107,6 +117,7 @@ target_sources(
       include/pointcloud_ad/config.hpp
       include/pointcloud_ad/geometry.hpp
       include/pointcloud_ad/inspection_pipeline.hpp
+      include/pointcloud_ad/inspection_context.hpp
       include/pointcloud_ad/inspection_result.hpp
       include/pointcloud_ad/normalization.hpp
       include/pointcloud_ad/registration_engine.hpp
@@ -147,7 +158,7 @@ target_link_libraries(
   pointcloud_ad PRIVATE Threads::Threads pcl_common pcl_features pcl_io pcl_kdtree pcl_search
                          pointcloudad_pcl_link_closure nlohmann_json::nlohmann_json)
 
-option(POINTCLOUDAD_ENABLE_CUDA "Enable CUDA registration correspondence search" OFF)
+option(POINTCLOUDAD_ENABLE_CUDA "Enable resident CUDA registration" OFF)
 if(POINTCLOUDAD_ENABLE_CUDA)
   enable_language(CUDA)
   find_package(CUDAToolkit 13.2 REQUIRED)
@@ -236,6 +247,13 @@ if(POINTCLOUDAD_BUILD_CLI)
     src/serialization/json_serialization.cpp
     src/serialization/output_writer.cpp)
   target_compile_features(pcad PRIVATE cxx_std_20)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    file(RELATIVE_PATH pointcloudad_cli_library_path
+      "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_BINDIR}"
+      "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+    set_target_properties(pcad PROPERTIES
+      INSTALL_RPATH "$ORIGIN/${pointcloudad_cli_library_path}")
+  endif()
   target_include_directories(
     pcad
     PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src/io
@@ -337,6 +355,48 @@ install(
     docs/benchmarks/PCAD-SIMD-003-317-4-scalar.csv docs/benchmarks/PCAD-SIMD-003-317-4-auto.csv
     docs/benchmarks/PCAD-SIMD-003-1m.csv docs/benchmarks/PCAD-SIMD-003-kernels.csv
   DESTINATION "docs/benchmarks")
+install(
+  FILES
+    docs/benchmarks/PCAD-GPU-003-1000-transfers.txt
+    docs/benchmarks/PCAD-GPU-003-1000.csv
+    docs/benchmarks/PCAD-GPU-003-317-transfers.txt
+    docs/benchmarks/PCAD-GPU-003-317.csv
+    docs/benchmarks/PCAD-GPU-003-65-transfers.txt
+    docs/benchmarks/PCAD-GPU-003-65.csv
+    docs/benchmarks/PCAD-GPU-003.md
+    docs/benchmarks/PCAD-PIPEPERF-001.csv
+    docs/benchmarks/PCAD-PIPEPERF-002.csv
+    docs/benchmarks/PCAD-PIPEPERF-003-1000-1.csv
+    docs/benchmarks/PCAD-PIPEPERF-003-1000-4.csv
+    docs/benchmarks/PCAD-PIPEPERF-003-317-1.csv
+    docs/benchmarks/PCAD-PIPEPERF-003-317-4.csv
+    docs/benchmarks/PCAD-PIPEPERF-003-65-1.csv
+    docs/benchmarks/PCAD-PIPEPERF-003-65-4.csv
+    docs/benchmarks/PCAD-PIPEPERF-003-defect.csv
+    docs/benchmarks/PCAD-PIPEPERF-003.md
+  DESTINATION "docs/benchmarks")
+
+install(
+  FILES
+    docs/validation/PCAD-VALID-001-ground-truth.json
+    docs/validation/PCAD-VALID-001-linux-clang.json
+    docs/validation/PCAD-VALID-001-linux-gcc.json
+    docs/validation/PCAD-VALID-001-windows-cpu.json
+    docs/validation/PCAD-VALID-001-windows-cuda-large.json
+    docs/validation/PCAD-VALID-001-windows-cuda.json
+    docs/validation/PCAD-VALID-001-windows-scalar.json
+    docs/validation/PCAD-VALID-001.md
+  DESTINATION "docs/validation")
+
+install(FILES docs/ROADMAP.md DESTINATION "docs")
+install(FILES
+    docs/release/M16.md
+    docs/release/M16-windows-cpu-package.json
+    docs/release/M16-windows-cuda-package.json
+    docs/release/M16-linux-package.json
+    DESTINATION "docs/release")
+install(PROGRAMS scripts/validate-generated.py DESTINATION "scripts")
+
 install(
   DIRECTORY examples/sdk_consumer
   DESTINATION "examples"

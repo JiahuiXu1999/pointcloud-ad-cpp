@@ -9,9 +9,10 @@ namespace pointcloud_ad {
 
 // Owns a snapshot of a millimetre reference and prepared search/covariance resources. The
 // reference, parameters, backend and maximum logical scan size are immutable. Create a new
-// context to change them. CPU/automatic select CPU; explicit GPU requires an available device.
-// Calls on one context (including moves/destruction) must be serialized by the caller. Separate
-// contexts are independent. GPU align must use the CUDA device current at creation.
+// context to change them. Automatic selection uses reference size, scan capacity and device
+// availability (see SDK guide). Calls on one context (including moves/destruction) must be
+// serialized by the caller. Separate contexts are independent. GPU align must use the CUDA device
+// current at creation.
 class RegistrationContext final {
 public:
   RegistrationContext(const RegistrationContext&) = delete;
@@ -35,6 +36,9 @@ public:
   [[nodiscard]] POINTCLOUD_AD_EXPORT Result<RegistrationMetrics>
   align(SurfaceView scan, const RigidTransform& initial_transform) noexcept;
 
+  // Actual immutable selection (cpu/gpu); automatic denotes a moved-from context only.
+  [[nodiscard]] POINTCLOUD_AD_EXPORT ComputeBackend backend() const noexcept;
+
 private:
   struct Impl;
   explicit RegistrationContext(std::unique_ptr<Impl> impl) noexcept;
@@ -43,8 +47,8 @@ private:
 
 // Synchronous registration. Borrows normalized millimetre surfaces for the duration of the call.
 // The initial and returned transforms map scan to reference. Explicit GPU never falls back;
-// automatic currently selects CPU until performance crossover thresholds have been established.
-// GPU accelerates correspondence search; preparation and ordered solving remain on CPU.
+// automatic selects GPU for eligible large inputs when available, otherwise CPU (SDK policy).
+// GPU runs resident objectives/covariances; index construction and the 6x6 solve remain on CPU.
 // Failures (including unavailable devices) are owned Result errors; no exception crosses this API.
 [[nodiscard]] POINTCLOUD_AD_EXPORT Result<RegistrationMetrics>
 register_surfaces(SurfaceView reference, SurfaceView scan, const RigidTransform& initial_transform,

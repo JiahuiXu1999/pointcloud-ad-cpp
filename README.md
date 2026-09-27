@@ -3,7 +3,7 @@
 Deterministic point-cloud anomaly detection for industrial inspection, delivered as a portable
 C++20 shared-library SDK and command-line application.
 
-> Project status: **M0 through M9 are complete and v0.1.0 is release-ready**. The official library
+> Project status: **M0 through M16 implementation is complete; SDK version remains 0.1.0**. The official library
 > artifact is a DLL/shared library with an audited public
 > export. Public contracts cover errors/results, units, frames, right-handed scan-to-reference
 > transforms, validated configuration, borrowed/owned surfaces, millimetre/frame normalization, and
@@ -14,11 +14,12 @@ C++20 shared-library SDK and command-line application.
 > `InspectionPipeline` / `InspectionResult` product slice with versioned JSON serialization plus an
 > internal attribute-PLY/manifest/hash output facade. The `pcad` CLI runs `inspect`,
 > `validate-config`, and `version`, and a deterministic synthetic acceptance matrix covers
-> AC-001 through AC-012. Industrial M3 validation remains pending real sample clouds.
+> AC-001 through AC-012. Generated-data acceptance is complete; industrial/site validation still requires real sample clouds.
 
 M10 / PCAD-HET-001 through HET-003 add verified backend-neutral registration selection: robust
 point-to-plane ICP, point-to-point ICP and GICP on CPU or an optional CUDA correspondence backend.
-CUDA mode is hybrid, with deterministic indexed exact search and CPU preparation/optimization.
+M14 extends CUDA mode to resident transforms, exact search, covariance and deterministic objectives;
+index construction and the 6x6 solve remain on CPU.
 An owning `RegistrationContext` reuses reference indexes and GICP covariance across scans.
 [Benchmarks](docs/benchmarks/PCAD-HET-002.md) separate index preparation and query costs. See
 [heterogeneous registration](docs/architecture/HETEROGENEOUS_REGISTRATION.md) and
@@ -28,6 +29,8 @@ M11-M13 extend registration with reusable iteration buffers, bounded CPU paralle
 fixed-block reductions, parallel GICP covariance, and runtime-dispatched scalar/AVX2 arithmetic.
 See the [optimization plan](docs/PERFORMANCE_PLAN.md), [numerical contract](docs/architecture/NUMERICAL_REPRODUCIBILITY.md)
 and [measured results](docs/benchmarks/PCAD-SIMD-003.md). CPU execution options are documented in the SDK guide.
+
+M14–M16 add GPU-resident registration, `InspectionContext` reference reuse, bounded parallel normal/boundary and comparison queries, and observable automatic backend selection. See the [GPU report](docs/benchmarks/PCAD-GPU-003.md), [full inspection report](docs/benchmarks/PCAD-PIPEPERF-003.md), [generated-data acceptance](docs/validation/PCAD-VALID-001.md) and [release evidence](docs/release/M16.md). Tests cover Windows CPU/CUDA, AVX2 fallback, Linux GCC and Clang ASan/UBSan on the documented host; this is not multi-device industrial certification.
 
 ## Build contract
 
@@ -72,7 +75,9 @@ public headers, CMake package, licenses, and a standalone consumer example. See
 
 ### Linux
 
-Set `VCPKG_ROOT` to a vcpkg checkout before using the Linux presets.
+Set `VCPKG_ROOT` to a vcpkg checkout before using the Linux presets. Clang builds require a matching
+OpenMP runtime. Use a modern Clang sanitizer runtime on kernels with high-entropy ASLR; see the
+[verified compiler overrides](docs/validation/PCAD-VALID-001.md).
 
 Run one of the committed Linux presets:
 

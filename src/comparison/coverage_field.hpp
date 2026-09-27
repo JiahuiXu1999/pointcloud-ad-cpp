@@ -65,9 +65,8 @@ private:
 // Computes the reference-to-scan coverage field. `scan_boundary` may be empty to skip boundary
 // rejection, otherwise it must span the aligned scan's storage layout. Both surfaces must be
 // normalized millimetres.
-[[nodiscard]] Result<CoverageField>
-compute_coverage_field(SurfaceView reference, SurfaceView aligned_scan,
-                       std::span<const std::uint8_t> scan_boundary,
-                       const ValidatedComparisonConfig& config) noexcept;
+[[nodiscard]] Result<CoverageField> compute_coverage_field(
+    SurfaceView reference, SurfaceView aligned_scan, std::span<const std::uint8_t> scan_boundary,
+    const ValidatedComparisonConfig& config, std::uint32_t thread_count = 1) noexcept;
 
 } // namespace pointcloud_ad::comparison

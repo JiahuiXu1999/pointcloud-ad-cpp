@@ -17,8 +17,10 @@ struct NearestNeighborResult final {
 };
 
 // Builds one KD-tree over the reference's valid points and queries every valid query point exactly
-// once, in storage order, for determinism. PCL types never leave this translation unit.
+// once; results retain storage order with worker-private query buffers. PCL types never leave this
+// translation unit.
 [[nodiscard]] Result<NearestNeighborResult>
-nearest_neighbors(SurfaceView reference, SurfaceView query, double max_distance_mm) noexcept;
+nearest_neighbors(SurfaceView reference, SurfaceView query, double max_distance_mm,
+                  std::uint32_t thread_count = 1) noexcept;
 
 } // namespace pointcloud_ad::backends::pcl_backend
