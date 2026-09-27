@@ -68,7 +68,8 @@ private:
 };
 
 [[nodiscard]] RegistrationParameters
-to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
+to_registration_parameters(const ValidatedRegistrationConfig& config,
+                           std::uint32_t threads) noexcept {
   RegistrationParameters parameters;
   parameters.max_iterations = config.max_iterations;
   parameters.max_correspondence_distance_mm = config.max_correspondence_distance_mm;
@@ -77,6 +78,7 @@ to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
   parameters.rotation_epsilon_rad = config.rotation_epsilon_rad;
   parameters.residual_epsilon_mm = config.residual_epsilon_mm;
   parameters.method = config.method;
+  parameters.thread_count = threads;
   return parameters;
 }
 
@@ -192,9 +194,10 @@ to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
                                               {}});
     }
     result.registration.initial_pose = *initial;
-    auto solved = register_surfaces(reference_prepared->surface(), scan_prepared->surface(),
-                                    *initial, to_registration_parameters(config.registration()),
-                                    config.execution().backend);
+    auto solved = register_surfaces(
+        reference_prepared->surface(), scan_prepared->surface(), *initial,
+        to_registration_parameters(config.registration(), config.execution().thread_count),
+        config.execution().backend);
     if (!solved) {
       return Result<InspectionResult>::failure(std::move(solved).error());
     }
@@ -245,6 +248,7 @@ to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
   }
 
   // P07: compare both directions.
+  const auto comparison_start = std::chrono::steady_clock::now();
   auto deviation_result = comparison::compute_deviation_field(
       reference_prepared->surface(), reference_prepared->boundary(), aligned_scan->view(),
       config.comparison());
@@ -262,6 +266,12 @@ to_registration_parameters(const ValidatedRegistrationConfig& config) noexcept {
 
   const auto deviation_statistics = comparison::summarize_deviation(deviation_field);
   const auto coverage_summary = comparison::summarize_coverage(coverage_field);
+
+  result.timings.push_back(StageTiming{
+      PipelineStage::compare,
+      static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+                                     std::chrono::steady_clock::now() - comparison_start)
+                                     .count())});
 
   // Map internal statistics onto the public report.
   result.deviations.valid_count = deviation_statistics.valid_count;

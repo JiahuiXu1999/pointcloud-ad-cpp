@@ -47,8 +47,14 @@ bool compare(const std::vector<Vec3f>& reference, const std::vector<Vec3f>& quer
   CorrespondenceSearch indexed(reference, queries.size());
   CorrespondenceSearch tiled(reference, queries.size(), SearchStrategy::tiled);
   bool passed = true;
+  std::vector<std::int32_t> reusable;
+  reusable.reserve(queries.size());
+  const auto* allocation = reusable.data();
   for (double radius : radii) {
     const auto expected = oracle(reference, queries, radius);
+    indexed.query_into(queries, radius, reusable);
+    passed &= expect(reusable == expected && reusable.data() == allocation,
+                     "query_into preserves allocated output and exact indices");
     passed &= expect(indexed.query(queries, radius) == expected,
                      "indexed search equals exhaustive double oracle");
     passed &= expect(tiled.query(queries, radius) == expected,
@@ -61,6 +67,9 @@ bool compare(const std::vector<Vec3f>& reference, const std::vector<Vec3f>& quer
                                    expected.begin(),
                                    expected.begin() + static_cast<std::ptrdiff_t>(shorter.size())),
                "changing query length preserves results");
+    indexed.query_into({}, radius, reusable);
+    passed &= expect(reusable.empty() && reusable.data() == allocation,
+                     "empty query retains output capacity");
     passed &= expect(indexed.query({}, radius).empty(), "empty query valid");
   }
   return passed;

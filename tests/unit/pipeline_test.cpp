@@ -107,6 +107,13 @@ int main() {
       auto result = pipeline.value().run(reference.surface.view(), scan.surface.view());
       passed &= expect(static_cast<bool>(result), "identical-surface run must complete");
       if (result) {
+        bool measured_comparison = false;
+        for (const auto& timing : result.value().timings) {
+          measured_comparison =
+              measured_comparison || timing.stage == pointcloud_ad::PipelineStage::compare;
+        }
+        passed &= expect(measured_comparison, "successful inspection records comparison timing");
+
         passed &=
             expect(result.value().verdict == Verdict::pass, "identical surfaces must yield PASS");
         passed &= expect(result.value().regions.empty(),

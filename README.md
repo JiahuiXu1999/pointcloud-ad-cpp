@@ -24,6 +24,11 @@ An owning `RegistrationContext` reuses reference indexes and GICP covariance acr
 [heterogeneous registration](docs/architecture/HETEROGENEOUS_REGISTRATION.md) and
 [SDK build/configuration](docs/SDK.md).
 
+M11-M13 extend registration with reusable iteration buffers, bounded CPU parallelism, deterministic
+fixed-block reductions, parallel GICP covariance, and runtime-dispatched scalar/AVX2 arithmetic.
+See the [optimization plan](docs/PERFORMANCE_PLAN.md), [numerical contract](docs/architecture/NUMERICAL_REPRODUCIBILITY.md)
+and [measured results](docs/benchmarks/PCAD-SIMD-003.md). CPU execution options are documented in the SDK guide.
+
 ## Build contract
 
 The source of truth is CMake Presets. Generated Visual Studio solutions and local build

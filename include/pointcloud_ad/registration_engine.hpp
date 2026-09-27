@@ -22,7 +22,8 @@ public:
 
   // Copies reference data during this call; caller storage/frame may then be released or changed.
   // max_scan_points bounds logical points (including masked points), must be in [1, INT32_MAX],
-  // and reserves GPU query storage once. Invalid inputs/allocation/device failures return errors.
+  // and reserves iteration workspace (including GPU query storage) once. Invalid
+  // inputs/allocation/device failures return errors.
   [[nodiscard]] static POINTCLOUD_AD_EXPORT Result<RegistrationContext>
   create(SurfaceView reference, RegistrationParameters parameters, std::size_t max_scan_points,
          ComputeBackend backend = ComputeBackend::cpu) noexcept;

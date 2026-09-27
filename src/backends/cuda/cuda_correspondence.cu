@@ -251,6 +251,13 @@ std::size_t CorrespondenceSearch::device_storage_bytes() const noexcept {
 
 std::vector<std::int32_t> CorrespondenceSearch::query(std::span<const Vec3f> points,
                                                       double max_distance_mm) {
+  std::vector<std::int32_t> result;
+  query_into(points, max_distance_mm, result);
+  return result;
+}
+
+void CorrespondenceSearch::query_into(std::span<const Vec3f> points, double max_distance_mm,
+                                      std::vector<std::int32_t>& result) {
   if (points.size() > impl_->capacity) {
     throw std::runtime_error("CUDA query capacity exceeded");
   }
@@ -267,9 +274,9 @@ std::vector<std::int32_t> CorrespondenceSearch::query(std::span<const Vec3f> poi
   if (device != impl_->device) {
     throw std::runtime_error("CUDA device changed during registration");
   }
-  std::vector<std::int32_t> result(points.size());
+  result.resize(points.size());
   if (points.empty()) {
-    return result;
+    return;
   }
   try {
     checked(cudaMemcpyAsync(impl_->queries, points.data(), points.size_bytes(),
@@ -295,7 +302,6 @@ std::vector<std::int32_t> CorrespondenceSearch::query(std::span<const Vec3f> poi
     cudaStreamSynchronize(impl_->stream);
     throw;
   }
-  return result;
 }
 
 } // namespace pointcloud_ad::backends::cuda_backend

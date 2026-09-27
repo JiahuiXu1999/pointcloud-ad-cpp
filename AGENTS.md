@@ -46,5 +46,7 @@ pwsh ./scripts/build.ps1 -Preset windows-msvc-release -VerifyInstall
 
 ## Current milestone
 
-M0, M0.1/B00, M1 through M9, and M10 / PCAD-HET-001 through PCAD-HET-003 are complete.
+M0, M0.1/B00, M1 through M10, and M11-M13 / PCAD-PERF-001 through PCAD-SIMD-003 are complete.
+See docs/benchmarks/PCAD-SIMD-003.md for measured scope and remaining industrial/platform gates.
+M14-M16 remain planned themes, not completed implementation.
 Extend the roadmap with a new atomic task before further implementation work.

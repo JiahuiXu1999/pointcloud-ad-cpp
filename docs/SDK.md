@@ -139,7 +139,15 @@ matching app-local MSVC/UCRT libraries.
 - Registration transforms map scan coordinates to reference coordinates.
 - Inspection verdicts (`PASS`, `FAIL`, `INDETERMINATE`) are domain results and are not process exit
   codes.
-- Deterministic execution uses explicit configuration, one thread, and a recorded random seed.
+- Deterministic execution uses explicit configuration and a recorded random seed. CPU registration uses fixed blocks and merge order independent of its worker budget; see [the numerical contract](architecture/NUMERICAL_REPRODUCIBILITY.md).
 
 See the public headers for ownership and failure contracts, and use `pcad validate-config` before a
 CLI inspection.
+
+## CPU execution budget (M12)
+
+`RegistrationParameters::thread_count` defaults to 1 and is a positive maximum including the calling thread. A context owns at most 64 workers and at most one worker per 256-point block of its reference/capacity. Independent contexts have independent budgets; callers must budget concurrent contexts. The pipeline forwards `execution.thread_count`. Worker exceptions are collected, all jobs finish, and the lowest failing block is translated at the public Result boundary. No process-wide thread policy changes. Public struct layout changed: rebuild C++ consumers with matching headers/DLL.
+
+## CPU arithmetic selection (M13)
+
+`RegistrationParameters::cpu_kernel` selects `CpuKernel::automatic`, `scalar`, or `avx2` independently of correspondence backend. It applies to CPU work in the hybrid CUDA path too. Automatic point-to-plane objective arithmetic stays scalar based on the measured baseline; transforms and the other objectives use AVX2 when available. Forced AVX2 also covers point-to-plane for explicit comparisons. Automatic dispatch checks the compiled implementation, CPUID AVX/AVX2/XSAVE/OSXSAVE and XCR0 XMM/YMM state. Forced unsupported AVX2 returns an error; auto safely uses scalar. `POINTCLOUDAD_ENABLE_AVX2=OFF` builds the portable fallback. The pipeline uses automatic arithmetic selection; explicit kernel overrides are currently a registration SDK control, not a JSON schema field. Rebuild C++ consumers after the parameter-layout addition.

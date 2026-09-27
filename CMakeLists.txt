@@ -22,6 +22,7 @@ if(POLICY CMP0144)
 endif()
 
 find_package(PCL CONFIG REQUIRED COMPONENTS common features io kdtree search)
+find_package(Threads REQUIRED)
 find_package(lz4 CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 
@@ -89,6 +90,7 @@ target_sources(
     src/preprocess/normal_boundary.hpp
     src/preprocess/voxel_sampling.cpp
     src/preprocess/voxel_sampling.hpp
+    src/registration/cpu_executor.hpp
     src/registration/registration_engine.cpp
     src/registration/registration_gate.cpp
     src/registration/registration_gate.hpp
@@ -142,7 +144,7 @@ target_include_directories(
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 target_link_libraries(
-  pointcloud_ad PRIVATE pcl_common pcl_features pcl_io pcl_kdtree pcl_search
+  pointcloud_ad PRIVATE Threads::Threads pcl_common pcl_features pcl_io pcl_kdtree pcl_search
                          pointcloudad_pcl_link_closure nlohmann_json::nlohmann_json)
 
 option(POINTCLOUDAD_ENABLE_CUDA "Enable CUDA registration correspondence search" OFF)
@@ -181,6 +183,48 @@ pointcloudad_enable_sanitizers(
   ${POINTCLOUDAD_ENABLE_ASAN}
   ${POINTCLOUDAD_ENABLE_UBSAN})
 pointcloudad_enable_clang_tidy(pointcloud_ad ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+
+# Baseline dispatch is compiled without ISA-specific options. AVX2 options are private
+# and are attached only to the separate arithmetic implementation target.
+option(POINTCLOUDAD_ENABLE_AVX2 "Build optional runtime-dispatched AVX2 arithmetic" ON)
+add_library(pointcloudad_cpu STATIC src/registration/cpu_dispatch.cpp src/registration/cpu_dispatch.hpp
+  src/registration/cpu_kernels.cpp src/registration/cpu_kernels.hpp src/registration/cpu_objective.hpp)
+target_compile_features(pointcloudad_cpu PRIVATE cxx_std_20)
+target_include_directories(pointcloudad_cpu PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set_target_properties(pointcloudad_cpu PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_VISIBILITY_PRESET hidden)
+set(pointcloudad_has_avx2 OFF)
+if(POINTCLOUDAD_ENABLE_AVX2 AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|amd64|x86_64|x86|i.86)$")
+  if(MSVC OR CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    set(pointcloudad_has_avx2 ON)
+    target_compile_definitions(pointcloudad_cpu PRIVATE POINTCLOUDAD_CAN_BUILD_AVX2=1)
+    add_library(pointcloudad_avx2_options INTERFACE)
+    if(MSVC)
+      target_compile_options(pointcloudad_avx2_options INTERFACE /arch:AVX2 /fp:strict)
+    else()
+      target_compile_options(pointcloudad_avx2_options INTERFACE -mavx2 -ffp-contract=off)
+    endif()
+  endif()
+endif()
+if(MSVC)
+  target_compile_options(pointcloudad_cpu PRIVATE /fp:strict)
+else()
+  target_compile_options(pointcloudad_cpu PRIVATE -ffp-contract=off)
+endif()
+if(pointcloudad_has_avx2)
+  add_library(pointcloudad_avx2 OBJECT src/registration/cpu_kernels_avx2.cpp)
+  target_compile_features(pointcloudad_avx2 PRIVATE cxx_std_20)
+  target_include_directories(pointcloudad_avx2 PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+  target_link_libraries(pointcloudad_avx2 PRIVATE pointcloudad_avx2_options)
+  set_target_properties(pointcloudad_avx2 PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_VISIBILITY_PRESET hidden)
+  pointcloudad_set_warnings(pointcloudad_avx2 ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+  pointcloudad_enable_sanitizers(pointcloudad_avx2 ${POINTCLOUDAD_ENABLE_ASAN} ${POINTCLOUDAD_ENABLE_UBSAN})
+  pointcloudad_enable_clang_tidy(pointcloudad_avx2 ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+  target_sources(pointcloudad_cpu PRIVATE $<TARGET_OBJECTS:pointcloudad_avx2>)
+endif()
+pointcloudad_set_warnings(pointcloudad_cpu ${POINTCLOUDAD_ENABLE_WARNINGS_AS_ERRORS})
+pointcloudad_enable_sanitizers(pointcloudad_cpu ${POINTCLOUDAD_ENABLE_ASAN} ${POINTCLOUDAD_ENABLE_UBSAN})
+pointcloudad_enable_clang_tidy(pointcloudad_cpu ${POINTCLOUDAD_ENABLE_CLANG_TIDY})
+target_link_libraries(pointcloud_ad PRIVATE pointcloudad_cpu)
 
 if(POINTCLOUDAD_BUILD_CLI)
   add_executable(
@@ -277,13 +321,21 @@ install(
   FILES LICENSE README.md SECURITY.md THIRD_PARTY_NOTICES.md
   DESTINATION ".")
 install(FILES docs/SDK.md DESTINATION "docs")
-install(FILES docs/architecture/HETEROGENEOUS_REGISTRATION.md DESTINATION "docs/architecture")
+install(FILES docs/architecture/HETEROGENEOUS_REGISTRATION.md docs/architecture/NUMERICAL_REPRODUCIBILITY.md DESTINATION "docs/architecture")
+install(FILES docs/PERFORMANCE_PLAN.md DESTINATION "docs")
 install(FILES docs/adr/0010-heterogeneous-registration.md DESTINATION "docs/adr")
 install(
   FILES docs/benchmarks/PCAD-HET-001.md docs/benchmarks/PCAD-HET-001.csv
     docs/benchmarks/PCAD-HET-002.md docs/benchmarks/PCAD-HET-002-search.csv
     docs/benchmarks/PCAD-HET-002-registration.csv docs/benchmarks/PCAD-HET-003.md
-    docs/benchmarks/PCAD-HET-003.csv
+    docs/benchmarks/PCAD-HET-003.csv docs/benchmarks/PCAD-SIMD-003.md
+    docs/benchmarks/PCAD-PERF-001.md docs/benchmarks/PCAD-PERF-001-baseline.csv
+    docs/benchmarks/PCAD-PERF-001-100k.csv docs/benchmarks/PCAD-PERF-002-scalar.csv
+    docs/benchmarks/PCAD-SIMD-003-65-1-scalar.csv docs/benchmarks/PCAD-SIMD-003-65-1-auto.csv
+    docs/benchmarks/PCAD-SIMD-003-65-4-scalar.csv docs/benchmarks/PCAD-SIMD-003-65-4-auto.csv
+    docs/benchmarks/PCAD-SIMD-003-317-1-scalar.csv docs/benchmarks/PCAD-SIMD-003-317-1-auto.csv
+    docs/benchmarks/PCAD-SIMD-003-317-4-scalar.csv docs/benchmarks/PCAD-SIMD-003-317-4-auto.csv
+    docs/benchmarks/PCAD-SIMD-003-1m.csv docs/benchmarks/PCAD-SIMD-003-kernels.csv
   DESTINATION "docs/benchmarks")
 install(
   DIRECTORY examples/sdk_consumer

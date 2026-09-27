@@ -68,8 +68,21 @@ thresholds are requested after M6; repository and maintainer identity are needed
 | PCAD-HET-002 | M10 | Exact indexed CUDA correspondence search shared by all registration objectives | HET-001 | Brute-force oracle, index invariants, GPU sanitizers, CPU/CUDA regression and scaling benchmark | Complete |
 | PCAD-HET-003 | M10 | Owned reusable reference registration contexts for CPU/CUDA and all three objectives | HET-002 | Snapshot lifetime, repeat/frame/capacity tests, installed SDK consumer and amortized benchmark | Complete |
 
-Future atomic tasks, to be defined before implementation: deterministic CPU parallel reduction,
-measured SIMD dispatch, and explicit inspection preprocessing/context reuse.
+## M11-M13: measured CPU and SIMD optimization
+
+See [performance plan](PERFORMANCE_PLAN.md). M14-M16 remain future scope.
+
+| ID | Milestone | Deliverable | Depends on | Required evidence | Status |
+|---|---|---|---|---|---|
+| PCAD-PERF-001 | M11 | End-to-end inspection and registration baseline | HET-003 | Tests, builds and measured evidence in task card | Complete |
+| PCAD-PERF-002 | M11 | Numerical contract and scalar regression | PERF-001 | Tests, builds and measured evidence in task card | Complete |
+| PCAD-PERF-003 | M11 | Reusable registration workspace | PERF-002 | Tests, builds and measured evidence in task card | Complete |
+| PCAD-CPU-001 | M12 | Bounded executor and parallel queries | PERF-003 | Tests, builds and measured evidence in task card | Complete |
+| PCAD-CPU-002 | M12 | Fixed-block objective and metric reduction | CPU-001 | Tests, builds and measured evidence in task card | Complete |
+| PCAD-CPU-003 | M12 | Parallel GICP covariance | CPU-002 | Tests, builds and measured evidence in task card | Complete |
+| PCAD-SIMD-001 | M13 | Runtime scalar and AVX2 dispatch | CPU-003 | Tests, builds and measured evidence in task card | Complete |
+| PCAD-SIMD-002 | M13 | SIMD coordinate transformation | SIMD-001 | Tests, builds and measured evidence in task card | Complete |
+| PCAD-SIMD-003 | M13 | SIMD objective arithmetic | SIMD-002 | Tests, builds and measured evidence in task card | Complete |
 
 ## Milestone themes
 
@@ -84,4 +97,8 @@ measured SIMD dispatch, and explicit inspection preprocessing/context reuse.
 - **M8 Hardening:** acceptance matrix, determinism, sanitizers, and benchmarks.
 - **M9 Release:** public documentation, packaging, and v0.1 release.
 
-- **M10 Heterogeneous registration:** shared CPU/CUDA objectives, indexed GPU search and reusable reference contexts; CPU parallelism, SIMD and inspection caching remain follow-up work.
+- **M10 Heterogeneous registration:** shared CPU/CUDA objectives, indexed GPU search and reusable reference contexts.
+- **M11 Performance foundation:** end-to-end baselines, numerical contract and reusable iteration buffers.
+- **M12 CPU execution:** bounded workers, deterministic block reductions and parallel GICP covariance.
+- **M13 SIMD:** runtime scalar/AVX2 dispatch, coordinate/objective kernels and [measured verification](benchmarks/PCAD-SIMD-003.md).
+- **M14-M16 Future work:** GPU-resident optimization, inspection caching/parallelism and cross-hardware/industrial acceptance; create atomic task cards before implementation.

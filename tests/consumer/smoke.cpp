@@ -27,6 +27,8 @@ int main() {
   }
   pointcloud_ad::RegistrationParameters options{10, 1.0, 0.5, 1.0e-6, 1.0e-6, 1.0e-6};
   options.method = pointcloud_ad::RegistrationMethod::point_to_point;
+  options.thread_count = 2;
+  options.cpu_kernel = pointcloud_ad::CpuKernel::scalar;
   auto initial = pointcloud_ad::RigidTransform::create(
       {1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}, surface.value().view().frame(),
       surface.value().view().frame());

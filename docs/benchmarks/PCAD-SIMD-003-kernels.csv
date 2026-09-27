@@ -1,0 +1,9 @@
+operation,kernel,points,p50_ms,checksum
+transform,scalar,100000,0.1515,97624.2
+transform,avx2,100000,0.0966,97624.2
+point_to_plane,scalar,100000,2.514,61344.7
+point_to_plane,avx2,100000,2.6684,61344.7
+point_to_point,scalar,100000,3.6558,111852
+point_to_point,avx2,100000,3.3146,111852
+gicp,scalar,100000,4.9493,229194
+gicp,avx2,100000,4.3853,229194

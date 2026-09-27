@@ -72,6 +72,7 @@ RegistrationParameters parameters(RegistrationMethod method) {
   p.rotation_epsilon_rad = 1.0e-9;
   p.residual_epsilon_mm = 1.0e-10;
   p.method = method;
+  p.thread_count = 4;
   return p;
 }
 } // namespace

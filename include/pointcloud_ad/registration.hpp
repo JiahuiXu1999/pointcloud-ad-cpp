@@ -41,6 +41,10 @@ struct RegistrationParameters final {
   std::uint32_t covariance_neighbors{12U};
   double covariance_epsilon{0.001}; // Dimensionless GICP covariance regularization.
 
+  // Maximum CPU workers including the calling thread; contexts cap resources at 64 workers.
+  std::uint32_t thread_count{1U};
+  CpuKernel cpu_kernel{CpuKernel::automatic};
+
   friend bool operator==(const RegistrationParameters&, const RegistrationParameters&) = default;
 };
 
@@ -48,6 +52,14 @@ namespace detail {
 
 [[nodiscard]] inline Result<RegistrationParameters>
 validate_registration_parameters(RegistrationParameters parameters) {
+  if (cpu_kernel_name(parameters.cpu_kernel) == "unknown") {
+    return Result<RegistrationParameters>::failure(
+        registration_error("parameters.cpu_kernel", "unsupported CPU kernel"));
+  }
+  if (parameters.thread_count == 0U) {
+    return Result<RegistrationParameters>::failure(
+        registration_error("parameters.thread_count", "must be positive"));
+  }
   if (registration_method_name(parameters.method) == "unknown") {
     return Result<RegistrationParameters>::failure(
         registration_error("parameters.method", "unsupported method"));

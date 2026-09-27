@@ -39,8 +39,11 @@ the reference and its spatial index are uploaded once per context and queries/re
 per iteration. One-shot calls use a temporary context. Align requires the device current at context
 creation; switching it is rejected. Resource destruction temporarily selects the owning device and
 restores the thread's previous device. No persistent global thread/device policy is changed.
-The shared CPU solver uses one worker. The existing execution thread-count field is not a promise
-of parallel registration; explicit CPU task partitioning is a follow-up task.
+M12 uses a context-owned bounded executor for CPU queries, fixed-block objective/metric reduction
+and GICP covariance. `thread_count` is a positive maximum including the caller, capped at 64 and
+the available work blocks. M13 dispatches transform and objective arithmetic to portable scalar or
+AVX2 kernels after CPU/OS capability checks. Blocks and merge order do not depend on worker count;
+see [numerical contract](NUMERICAL_REPRODUCIBILITY.md) and the SDK guide.
 
 ## Prepared reference lifetime (PCAD-HET-003)
 
@@ -106,7 +109,8 @@ registration or full-inspection acceptance. Automatic selection remains CPU unti
 crossover and real industrial accuracy tests justify a policy.
 
 Reference reuse is implemented and measured in [PCAD-HET-003](../benchmarks/PCAD-HET-003.md).
-Next atomic tasks should introduce deterministic CPU task partitioning, and runtime-dispatched SIMD after profiling. GICP covariance
+M11-M13 add measured CPU task partitioning and runtime-dispatched SIMD. See
+[performance plan](../PERFORMANCE_PLAN.md) and [results](../benchmarks/PCAD-SIMD-003.md). GICP covariance
 and the shared reduction can migrate to GPU behind these contracts later. NDT/VGICP, multiscale
 registration and global feature registration need their own algorithm-specific contracts and tests.
 

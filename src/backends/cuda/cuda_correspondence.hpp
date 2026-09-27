@@ -24,6 +24,8 @@ public:
   CorrespondenceSearch& operator=(const CorrespondenceSearch&) = delete;
   [[nodiscard]] std::vector<std::int32_t> query(std::span<const Vec3f> points,
                                                 double max_distance_mm);
+  void query_into(std::span<const Vec3f> points, double max_distance_mm,
+                  std::vector<std::int32_t>& result);
   // Allocated device-array payload, excluding driver/context overhead and host construction.
   [[nodiscard]] std::size_t device_storage_bytes() const noexcept;
 

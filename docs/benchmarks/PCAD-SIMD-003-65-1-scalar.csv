@@ -1,0 +1,13 @@
+points,method,stage,samples,p50_ms,p95_ms,cumulative_peak_process_mib
+4225,point_to_plane,first,7,11.7222,12.2678,8.3359375
+4225,point_to_plane,oneshot,7,12.388,13.911,8.3359375
+4225,point_to_plane,prepare,7,0.4963,0.5981,8.3359375
+4225,point_to_plane,reused,14,11.8094,12.5116,8.3359375
+4225,point_to_point,first,7,12.3069,12.6006,8.40234375
+4225,point_to_point,oneshot,7,12.7008,13.491,8.40234375
+4225,point_to_point,prepare,7,0.511,0.5357,8.40234375
+4225,point_to_point,reused,14,12.1709,13.098,8.40234375
+4225,gicp,first,7,18.3986,19.3302,9.28125
+4225,gicp,oneshot,7,24.5274,26.8387,9.28125
+4225,gicp,prepare,7,6.3741,6.6692,9.28125
+4225,gicp,reused,14,18.7689,19.5536,9.28125
